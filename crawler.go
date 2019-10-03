@@ -77,8 +77,6 @@ func download(url string) (io.ReadCloser, error) {
 
 // filterDomain filters out links that are different from the crawler's scope
 func (c *crawler) filterDomain(links []string) []string{
-	log.Info("Filtering by domain")
-	// todo : not sure if modifying in place will work here
 	n := 0
 	for _, link := range links {
 		if strings.HasPrefix(link, c.domain) {

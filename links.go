@@ -31,7 +31,9 @@ func extractLinks(origin string, body io.Reader) []string {
 			if link, err := extractLink(origin, token); link != "" {
 				links[link] = true
 			} else {
-				log.Error("Error in token '%s' : %s.", token.String(), err)
+				if err != nil {
+					log.Error("Error in token '%s' : %s.", token.String(), err)
+				}
 			}
 		}
 	}
@@ -44,15 +46,18 @@ func extractLink(origin string, token html.Token) (string, error) {
 	// get href value
 	for _, a := range token.Attr {
 		if a.Key == "href" {
-			return rel2abs(origin, a.Val)
+			return sanitise(origin, a.Val)
 		}
 	}
 
 	return "", errors.New("no href found in token")
 }
 
-// rel2abs returns the absolute url if the given link is relative to origin
-func rel2abs(origin string, link string) (string, error) {
+// sanitise fixes some things in supposed link :
+// - rebuilds the absolute url if the given link is relative to origin
+// - escapes invalid links
+// - strips queries and fragments
+func sanitise(origin string, link string) (string, error) {
 	log.Infof("Fixing %s from %s", link, origin)
 
 	u, err := url.Parse(link)
@@ -61,18 +66,29 @@ func rel2abs(origin string, link string) (string, error) {
 		return "", errors.New(msg)
 	}
 
+	if u.Path == "" || u.Path == "/" {
+		return "", nil
+	}
+
 	base, err := url.Parse(origin)
 	if err != nil {
 		msg := fmt.Sprintf("Couldn't parse %s : %s", origin, err)
 		return "", errors.New(msg)
 	}
-
 	u = base.ResolveReference(u)
 
-	log.Infof("Fixed %s to %s", link, u.Path)
+	stripQuery(u)
+
+	log.Infof("Fixed '%s' to '%s'", link, u.String())
 
 	// extracting Path strips away the query and fragment
-	return u.Path, nil
+	return u.String(), nil
+}
+
+// stripQuery strips the query and fragments from an URL
+func stripQuery(link *url.URL) {
+	link.RawQuery = ""
+	link.Fragment = ""
 }
 
 // mapToSlice returns a slice of strings containing the map's keys

@@ -59,9 +59,7 @@ func (c *crawler) scrap(url string) {
 	links := extractLinks(url, body)
 
 	// Filter links by current domain
-	log.Info("before filtering by domain : ", links)
-	c.filterDomain(links)
-	log.Info("after filtering by domain : ", links)
+	links = c.filterDomain(links)
 
 	// Enqueue results
 	c.results <- newResult(url, &links)
@@ -78,7 +76,7 @@ func download(url string) (io.ReadCloser, error) {
 }
 
 // filterDomain filters out links that are different from the crawler's scope
-func (c *crawler) filterDomain(links []string) {
+func (c *crawler) filterDomain(links []string) []string{
 	log.Info("Filtering by domain")
 	// todo : not sure if modifying in place will work here
 	n := 0
@@ -90,7 +88,7 @@ func (c *crawler) filterDomain(links []string) {
 			log.Trace("Filtering out element ", link)
 		}
 	}
-	links = links[:n]
+	return links[:n]
 }
 
 // filterVisited filters out links that have already been visited

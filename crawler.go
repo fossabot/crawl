@@ -6,10 +6,12 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"time"
 )
 
 type crawler struct {
 	domain  *url.URL
+	requestTimeout	time.Duration
 	visited map[string]bool
 	pending map[string]bool
 	todo    chan string
@@ -22,7 +24,7 @@ type result struct {
 }
 
 // newCrawler returns an initialised crawler struct
-func newCrawler(domain string) (*crawler, error) {
+func newCrawler(domain string, timeout time.Duration) (*crawler, error) {
 
 	dURL, err := url.Parse(domain)
 	if err != nil {
@@ -31,6 +33,7 @@ func newCrawler(domain string) (*crawler, error) {
 
 	return &crawler{
 		domain:  dURL,
+		requestTimeout: timeout,
 		visited: make(map[string]bool),
 		pending: make(map[string]bool),
 		todo:    make(chan string, 100),
@@ -47,10 +50,10 @@ func newResult(url string, links *[]string) *result {
 }
 
 // ScrapLinks returns the links found in the web page pointed to by url
-func ScrapLinks(url string) ([]string, error) {
+func ScrapLinks(url string, timeout time.Duration) ([]string, error) {
 
 	// Retrieve page
-	body, err := download(url)
+	body, err := download(url, timeout)
 	defer func() {
 		if body != nil{
 			_ = body.Close()
@@ -68,7 +71,7 @@ func ScrapLinks(url string) ([]string, error) {
 func (c *crawler) scraper(url string) {
 
 	// Scrap and retrieve links
-	links, err := ScrapLinks(url)
+	links, err := ScrapLinks(url, c.requestTimeout)
 	if err != nil {
 		log.Errorf("Encountered error on page '%s' : %s", url, err)
 		c.results <- newResult(url, nil)
@@ -84,8 +87,13 @@ func (c *crawler) scraper(url string) {
 }
 
 // download retrieves the web page pointed to by the given url
-func download(url string) (io.ReadCloser, error) {
-	resp, err := http.Get(url)
+func download(url string, timeout time.Duration) (io.ReadCloser, error) {
+
+	var client = &http.Client{
+		Timeout:	timeout,
+	}
+
+	resp, err := client.Get(url)
 	if err != nil {
 		if resp != nil {
 			_ = resp.Body.Close()
@@ -168,7 +176,7 @@ func (c *crawler) newTask(url string) {
 func crawl(domain string, syn *synchron) {
 	defer syn.group.Done()
 
-	c, err := newCrawler(domain)
+	c, err := newCrawler(domain, 3 * time.Second)
 	if err != nil {
 		log.WithFields(log.Fields{"domain" : domain,}).Fatal(err)
 	}

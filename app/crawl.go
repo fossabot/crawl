@@ -13,13 +13,14 @@ func main() {
 
 	// Define and parse command line arguments
 	timeout := flag.Int("timeout", 0, "crawling time, in seconds. 0 or none is infinite.")
+	flag.Parse()
 
-	if len(os.Args) < 2 {
+	if len(flag.Args()) == 0 {
 		fmt.Printf("Expecting at least an url as entry point. e.g. './%s https://bytema.re'\n", filepath.Base(os.Args[0]))
 		os.Exit(1)
 	}
 
-	domain := os.Args[1]
+	domain := flag.Args()[0]
 
 	// Launch crawler
 	err := crawl.Crawl(domain, time.Duration(*timeout)*time.Second)

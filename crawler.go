@@ -6,7 +6,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"strings"
 )
 
 type crawler struct {
@@ -53,9 +52,8 @@ func ScrapLinks(url string) ([]string, error) {
 	// Retrieve page
 	body, err := download(url)
 	defer func() {
-		err = body.Close()
-		if err != nil {
-			log.Error("Closing response body failed. But who cares ?")
+		if body != nil{
+			_ = body.Close()
 		}
 	}()
 	if err != nil {
@@ -89,6 +87,9 @@ func (c *crawler) scraper(url string) {
 func download(url string) (io.ReadCloser, error) {
 	resp, err := http.Get(url)
 	if err != nil {
+		if resp != nil {
+			_ = resp.Body.Close()
+		}
 		return nil, err
 	}
 
@@ -99,11 +100,12 @@ func download(url string) (io.ReadCloser, error) {
 func (c *crawler) filterDomain(links []string) []string{
 	n := 0
 	for _, link := range links {
-		if strings.HasPrefix(link, c.domain.Host) {
+		linkURL, _ := url.Parse(link)
+		if linkURL.Host == c.domain.Host {
 			links[n] = link
 			n++
 		} else {
-			log.Trace("Filtering out element ", link)
+			//log.Infof("Filtering out element ", link)
 		}
 	}
 	return links[:n]
@@ -133,7 +135,7 @@ func (c *crawler) handleResult(result *result) {
 
 	// If the download failed and links is nil
 	if result.links == nil {
-		// todo : handle pages that continuously fail on download
+		// todo : handle pages that continuously fail on download (struct for each link with nb of retries)
 		c.todo <- result.url
 		return
 	}
@@ -143,6 +145,7 @@ func (c *crawler) handleResult(result *result) {
 
 	// Filter out already visited links
 	filtered := c.filterVisited(result.links)
+	log.Infof("Filtered out %d visited links.", len(*result.links) - len(filtered))
 
 	// Add filtered list in queue of links to visit
 	for _, link := range filtered {
@@ -150,7 +153,7 @@ func (c *crawler) handleResult(result *result) {
 	}
 
 	// Print out result
-	fmt.Printf("Found %d unvisited links on page %s : %s\n", len(filtered), result.url, *result.links)
+	fmt.Printf("Found %d unvisited links on page %s : %s\n", len(filtered), result.url, filtered)
 }
 
 // newTask triggers a new visit on a link

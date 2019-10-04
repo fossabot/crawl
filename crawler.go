@@ -79,7 +79,7 @@ func (c *crawler) scraper(url string) {
 	links = c.filterHost(links)
 
 	// Enqueue results
-	log.Infof("Found %d links on page %s\n", len(links), url)
+	//log.Infof("Found %d links on page %s\n", len(links), url)
 	c.results <- newResult(url, &links)
 }
 
@@ -112,21 +112,16 @@ func (c *crawler) filterHost(links []string) []string{
 }
 
 // filterVisited filters out links that have already been visited
-func (c *crawler) filterVisited(links *[]string) []string {
-
-	filtered := make([]string, len(*links))
-	// todo : modifying the slice in-place may be more efficient, setting a string to "" if don't keep
-	//  it, and then only send to channel if it's non-""
-
-	// filter out already encountered links
-	for _, link := range *links {
+func (c *crawler) filterVisited(links []string) []string {
+	n := 0
+	for _, link := range links {
 		if _, ok := c.visited[link]; ok == false {
 			// If value is not in map, we haven't visited it, thus keeping it
-			filtered = append(filtered, link)
+			links[n] = link
+			n++
 		}
 	}
-
-	return filtered
+	return links[:n]
 }
 
 // handleResult treats the result of scraping a page for links
@@ -144,8 +139,8 @@ func (c *crawler) handleResult(result *result) {
 	c.visited[result.url] = true
 
 	// Filter out already visited links
-	filtered := c.filterVisited(result.links)
-	log.Infof("Filtered out %d visited links.", len(*result.links) - len(filtered))
+	filtered := c.filterVisited(*result.links)
+	//log.Infof("Filtered out %d visited links.", len(*result.links) - len(filtered))
 
 	// Add filtered list in queue of links to visit
 	for _, link := range filtered {
@@ -196,7 +191,7 @@ loop:
 
 		// For every link that is left to visit in the queue
 		case link := <-c.todo:
-			log.Info("New task on " + link)
+			//log.Info("New task on " + link)
 			c.newTask(link)
 		}
 	}

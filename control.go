@@ -36,13 +36,25 @@ func newSynchron(timeout time.Duration, nbParties int) *synchron {
 }
 
 // checkout allows checks on the state of timeout for synchronisation. Only First call of this function returns true.
-func (c *synchron) checkout() bool {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
+func (syn *synchron) checkout() bool {
+	syn.mutex.Lock()
+	defer syn.mutex.Unlock()
 
-	first := c.stopFlag == false
-	c.stopFlag = true
+	first := syn.stopFlag == false
+	syn.stopFlag = true
 	return first
+}
+
+// sendQuitSignal sends a signal only once, to signal shutdown
+func (syn *synchron) sendQuitSignal() {
+	if syn.checkout() {
+		// Send interrupt signal to ourselves, intercepted by signalHandler
+		p, _ := os.FindProcess(os.Getpid())
+		_ = p.Signal(os.Interrupt)
+
+		// If timer is calling this function, crawler will pick the message, and inversely
+		syn.stopChan <- struct{}{}
+	}
 }
 
 // timer implements a timeout (should be called as a goroutine)
@@ -63,13 +75,8 @@ loop:
 
 		// When timeout is reached, inform of timeout, send signal, and quit
 		case <-time.After(syn.timeout):
-
-			if syn.checkout() {
-				// Send interrupt signal to ourselves, intercepted by signalHandler
-				p, _ := os.FindProcess(os.Getpid())
-				_ = p.Signal(os.Interrupt)
-			}
-
+			log.Infof("Timing out after %d seconds. Shutting down.", syn.timeout/time.Second)
+			syn.sendQuitSignal()
 			break loop
 		}
 	}
@@ -80,16 +87,14 @@ func signalHandler(syn *synchron) {
 	defer syn.group.Done()
 
 	sig := make(chan os.Signal, 1)
-	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
+	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM, syscall.SIGKILL)
 
 	for s := range sig {
 		if syn.checkout() {
 			log.Infof("Crawler received stop signal : ", s)
 			syn.stopChan <- struct{}{} // for timer
-		} else {
-			log.Infof("Timing out after %d seconds. Shutting down.", syn.timeout/time.Second)
+			syn.stopChan <- struct{}{} // for crawler
 		}
-		syn.stopChan <- struct{}{} // for crawler
 		break
 	}
 }
@@ -135,7 +140,7 @@ func Crawl(domain string, timeout time.Duration) (err error) {
 	syn.group.Wait()
 	close(syn.stopChan)
 
-	log.Info("Crawler now shutting down.")
+	log.Info("Crawler shutting down.")
 
 	return err
 }

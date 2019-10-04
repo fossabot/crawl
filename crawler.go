@@ -82,7 +82,7 @@ func (c *crawler) scraper(url string) {
 	// Scrap and retrieve links
 	links, err := ScrapLinks(url, c.requestTimeout)
 	if err != nil {
-		log.Errorf("Encountered error on page '%s' : %s", url, err)
+		//log.Errorf("Encountered error on page '%s' : %s", url, err)
 	} else {
 		// Filter links by current domain
 		links = c.filterHost(links)
@@ -194,18 +194,25 @@ func (c *crawler) newTask(url string) {
 	go c.scraper(url)
 }
 
+// checkProgress verifies if there are pages left to scrap or being scraped. Returns false if not.
+func (c *crawler) checkProgress() bool {
+	return len(c.todo) != 0 || len(c.pending) != 0
+}
+
 // crawl manages worker goroutines scraping pages and prints results
-// todo : add a condition to quit when no more pages are to be visited
-// todo : add a finer sync mechanism with workers when interrupting mid-request
 // todo : keep a time tracker for stats
 func crawl(domain string, syn *synchron) {
 	defer syn.group.Done()
 
+	ticker := time.NewTicker(time.Second)
 	c, err := newCrawler(domain, 4*time.Second)
 	if err != nil {
-		log.WithFields(log.Fields{"domain": domain}).Fatal(err)
+		log.WithFields(log.Fields{"domain": domain}).Error(err)
+		goto quit
 	}
 	c.todo <- c.domain.String()
+
+
 
 loop:
 	for {
@@ -214,9 +221,6 @@ loop:
 		// Upon receiving a stop signal
 		case <-syn.stopChan:
 			log.Info("Stopping crawler.")
-			close(c.workerStop)
-			c.workerSync.Wait()
-			fmt.Printf("Crawler visited a total of %d links starting from %s\n", len(c.visited), domain)
 			break loop
 
 		// Upon receiving a resulting from a worker scraping a page
@@ -226,6 +230,20 @@ loop:
 		// For every link that is left to visit in the queue
 		case link := <-c.todo:
 			c.newTask(link)
+
+		// Every tick, verify if there are jobs or pending tasks left
+		case <-ticker.C:
+			if c.checkProgress() == false {
+				log.Info("No links left to explore.")
+				break loop
+			}
 		}
 	}
+
+	close(c.workerStop)
+	c.workerSync.Wait()
+	fmt.Printf("Crawler visited a total of %d links starting from %s\n", len(c.visited), domain)
+quit:
+	ticker.Stop()
+	syn.sendQuitSignal()
 }

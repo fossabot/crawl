@@ -7,15 +7,16 @@ You can launch the app with or without a timeout (in seconds), like this :
 
 > go run app/crawl.go https://monzo.com (-timeout=10)
 
+However the program was launched, you can interrupt it with ctrl+c.
+
 ## Features
 
 - single domain scope
 - parallel scrawling
 - avoid loops on already visited links
-- usable as a package by calling Crawl() and extractLinks() functions
+- usable as a package by calling Crawl() and ExtractLinks() functions
 
 ## todo 
-- fix timer
 - first argument as domain
 - add conditions for stop case / no more links to follow
 - fix todo

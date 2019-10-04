@@ -73,7 +73,7 @@ func signalHandler(syn *synchron) {
 			log.Infof("Timing out after %d seconds. Shutting down.", <-syn.timeoutChan)
 		} else {
 			log.Infof("Crawler received signal : ", s.String())
-			if syn.timeout <= 0 {
+			if syn.timeout > 0 {
 				syn.stopChan <- struct{}{} // for timer
 			}
 		}

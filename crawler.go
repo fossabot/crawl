@@ -11,14 +11,14 @@ import (
 )
 
 type crawler struct {
-	domain  *url.URL
-	requestTimeout	time.Duration
-	visited map[string]bool
-	pending map[string]bool
-	todo    chan string
-	results chan *result
-	workerSync	sync.WaitGroup
-	workerStop	chan struct{}
+	domain         *url.URL
+	requestTimeout time.Duration
+	visited        map[string]bool
+	pending        map[string]bool
+	todo           chan string
+	results        chan *result
+	workerSync     sync.WaitGroup
+	workerStop     chan struct{}
 }
 
 type result struct {
@@ -35,14 +35,14 @@ func newCrawler(domain string, timeout time.Duration) (*crawler, error) {
 	}
 
 	return &crawler{
-		domain:  dURL,
+		domain:         dURL,
 		requestTimeout: timeout,
-		visited: make(map[string]bool),
-		pending: make(map[string]bool),
-		todo:    make(chan string, 100),
-		results: make(chan *result, 100),
-		workerSync: sync.WaitGroup{},
-		workerStop: make(chan struct{}),
+		visited:        make(map[string]bool),
+		pending:        make(map[string]bool),
+		todo:           make(chan string, 100),
+		results:        make(chan *result, 100),
+		workerSync:     sync.WaitGroup{},
+		workerStop:     make(chan struct{}),
 	}, nil
 }
 
@@ -60,7 +60,7 @@ func ScrapLinks(url string, timeout time.Duration) ([]string, error) {
 	// Retrieve page
 	body, err := download(url, timeout)
 	defer func() {
-		if body != nil{
+		if body != nil {
 			_ = body.Close()
 		}
 	}()
@@ -69,12 +69,11 @@ func ScrapLinks(url string, timeout time.Duration) ([]string, error) {
 	}
 
 	// Retrieve links
-	return extractLinks(url, body), nil
+	return ExtractLinks(url, body), nil
 }
 
 // scraper retrieves a webpage, parses it for links, keeps only domain or relative links, sanitises them, an returns the result
 func (c *crawler) scraper(url string) {
-	c.workerSync.Add(1)
 	defer c.workerSync.Done()
 
 	// Result will hold the links on success, or send as is on error
@@ -87,7 +86,7 @@ func (c *crawler) scraper(url string) {
 	} else {
 		// Filter links by current domain
 		links = c.filterHost(links)
-		res.links =&links
+		res.links = &links
 	}
 
 	// Don't send results if we're being asked to stop
@@ -104,7 +103,7 @@ func (c *crawler) scraper(url string) {
 func download(url string, timeout time.Duration) (io.ReadCloser, error) {
 
 	var client = &http.Client{
-		Timeout:	timeout,
+		Timeout: timeout,
 	}
 
 	resp, err := client.Get(url)
@@ -119,7 +118,7 @@ func download(url string, timeout time.Duration) (io.ReadCloser, error) {
 }
 
 // filterHost filters out links that are different from the crawler's scope
-func (c *crawler) filterHost(links []string) []string{
+func (c *crawler) filterHost(links []string) []string {
 	n := 0
 	for _, link := range links {
 		linkURL, _ := url.Parse(link)
@@ -133,12 +132,24 @@ func (c *crawler) filterHost(links []string) []string{
 	return links[:n]
 }
 
-// filterVisited filters out links that have already been visited
-func (c *crawler) filterVisited(links []string) []string {
+// filterLinks filters out links that have already been visited or are in pending treatment
+func (c *crawler) filterLinks(links []string) []string {
 	n := 0
 	for _, link := range links {
-		if _, ok := c.visited[link]; ok == false {
-			// If value is not in map, we haven't visited it, thus keeping it
+		keep := true
+
+		// Check pending links
+		if _, ok := c.pending[link]; ok {
+			keep = false
+		}
+
+		// Check visited links
+		if _, ok := c.visited[link]; ok {
+			keep = false
+		}
+
+		// Keep the link
+		if keep {
 			links[n] = link
 			n++
 		}
@@ -161,8 +172,7 @@ func (c *crawler) handleResult(result *result) {
 	c.visited[result.url] = true
 
 	// Filter out already visited links
-	filtered := c.filterVisited(*result.links)
-	//log.Infof("Filtered out %d visited links.", len(*result.links) - len(filtered))
+	filtered := c.filterLinks(*result.links)
 
 	// Add filtered list in queue of links to visit
 	for _, link := range filtered {
@@ -180,6 +190,7 @@ func (c *crawler) newTask(url string) {
 	c.pending[url] = true
 
 	// Launch a worker goroutine on that link
+	c.workerSync.Add(1)
 	go c.scraper(url)
 }
 
@@ -190,9 +201,9 @@ func (c *crawler) newTask(url string) {
 func crawl(domain string, syn *synchron) {
 	defer syn.group.Done()
 
-	c, err := newCrawler(domain, 3 * time.Second)
+	c, err := newCrawler(domain, 4*time.Second)
 	if err != nil {
-		log.WithFields(log.Fields{"domain" : domain,}).Fatal(err)
+		log.WithFields(log.Fields{"domain": domain}).Fatal(err)
 	}
 	c.todo <- c.domain.String()
 
@@ -214,7 +225,6 @@ loop:
 
 		// For every link that is left to visit in the queue
 		case link := <-c.todo:
-			//log.Info("New task on " + link)
 			c.newTask(link)
 		}
 	}

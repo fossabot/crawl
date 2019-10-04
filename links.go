@@ -9,10 +9,10 @@ import (
 	"net/url"
 )
 
-// extractLinks returns a slice of all links from an http.Get response body like reader object.
+// ExtractLinks returns a slice of all links from an http.Get response body like reader object.
 // Links won't contain queries or fragments
 // It does not close the reader.
-func extractLinks(origin string, body io.Reader) []string {
+func ExtractLinks(origin string, body io.Reader) []string {
 	tokenz := html.NewTokenizer(body)
 
 	// This map is an intermediary container for found links, avoiding duplicates
@@ -32,7 +32,10 @@ func extractLinks(origin string, body io.Reader) []string {
 				links[link] = true
 			} else {
 				if err != nil {
-					log.Error("Error in token '%s' : %s.", token.String(), err)
+					log.WithFields(log.Fields{
+						"page":  origin,
+						"token": token.String(),
+					}).Errorf("Error in token : %s", err)
 				}
 			}
 		}
@@ -58,7 +61,6 @@ func extractLink(origin string, token html.Token) (string, error) {
 // - escapes invalid links
 // - strips queries and fragments
 func sanitise(origin string, link string) (string, error) {
-	log.Infof("Fixing %s from %s", link, origin)
 
 	u, err := url.Parse(link)
 	if err != nil {
@@ -79,9 +81,8 @@ func sanitise(origin string, link string) (string, error) {
 
 	stripQuery(u)
 
-	log.Infof("Fixed '%s' to '%s'", link, u.String())
+	log.Trace("Rewrote '%s' to '%s'", link, u.String())
 
-	// extracting Path strips away the query and fragment
 	return u.String(), nil
 }
 

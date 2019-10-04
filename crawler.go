@@ -5,11 +5,12 @@ import (
 	log "github.com/sirupsen/logrus"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 )
 
 type crawler struct {
-	domain  string
+	domain  *url.URL
 	visited map[string]bool
 	pending map[string]bool
 	todo    chan string
@@ -22,15 +23,20 @@ type result struct {
 }
 
 // newCrawler returns an initialised crawler struct
-func newCrawler(domain string) *crawler {
-	// todo : retain radical domain from url
+func newCrawler(domain string) (*crawler, error) {
+
+	dURL, err := url.Parse(domain)
+	if err != nil {
+		return nil, err
+	}
+
 	return &crawler{
-		domain:  domain,
+		domain:  dURL,
 		visited: make(map[string]bool),
 		pending: make(map[string]bool),
 		todo:    make(chan string, 100),
 		results: make(chan *result, 100),
-	}
+	}, nil
 }
 
 //  newResult returns an initialised result struct
@@ -93,7 +99,7 @@ func download(url string) (io.ReadCloser, error) {
 func (c *crawler) filterDomain(links []string) []string{
 	n := 0
 	for _, link := range links {
-		if strings.HasPrefix(link, c.domain) {
+		if strings.HasPrefix(link, c.domain.Host) {
 			links[n] = link
 			n++
 		} else {
@@ -105,7 +111,6 @@ func (c *crawler) filterDomain(links []string) []string{
 
 // filterVisited filters out links that have already been visited
 func (c *crawler) filterVisited(links *[]string) []string {
-	// todo : add check to filter out external domains
 
 	filtered := make([]string, len(*links))
 	// todo : modifying the slice in-place may be more efficient, setting a string to "" if don't keep
@@ -165,8 +170,11 @@ func (c *crawler) newTask(url string) {
 func crawl(domain string, syn *synchron) {
 	defer syn.group.Done()
 
-	c := newCrawler(domain)
-	c.todo <- domain
+	c, err := newCrawler(domain)
+	if err != nil {
+		log.WithFields(log.Fields{"domain" : domain,}).Fatal(err)
+	}
+	c.todo <- c.domain.String()
 
 loop:
 	for {
@@ -184,9 +192,9 @@ loop:
 			c.handleResult(result)
 
 		// For every link that is left to visit in the queue
-		case url := <-c.todo:
-			log.Info("New task on " + url)
-			c.newTask(url)
+		case link := <-c.todo:
+			log.Info("New task on " + link)
+			c.newTask(link)
 		}
 	}
 }

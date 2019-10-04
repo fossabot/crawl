@@ -14,21 +14,21 @@ import (
 
 // synchron holds the synchronisation tools and parameters
 type synchron struct {
-	timeout     time.Duration
-	group       sync.WaitGroup
-	stopChan    chan struct{}
-	stopFlag	bool
-	mutex		*sync.Mutex
+	timeout  time.Duration
+	group    sync.WaitGroup
+	stopChan chan struct{}
+	stopFlag bool
+	mutex    *sync.Mutex
 }
 
 // newSynchron returns an initialised synchron struct
 func newSynchron(timeout time.Duration, nbParties int) *synchron {
 	s := &synchron{
-		timeout:     timeout,
-		group:       sync.WaitGroup{},
-		stopChan:    make(chan struct{}, 2),
-		stopFlag:	false,
-		mutex:		&sync.Mutex{},
+		timeout:  timeout,
+		group:    sync.WaitGroup{},
+		stopChan: make(chan struct{}, 2),
+		stopFlag: false,
+		mutex:    &sync.Mutex{},
 	}
 
 	s.group.Add(nbParties)
@@ -87,7 +87,7 @@ func signalHandler(syn *synchron) {
 			log.Infof("Crawler received stop signal : ", s)
 			syn.stopChan <- struct{}{} // for timer
 		} else {
-			log.Infof("Timing out after %d seconds. Shutting down.", syn.timeout / time.Second)
+			log.Infof("Timing out after %d seconds. Shutting down.", syn.timeout/time.Second)
 		}
 		syn.stopChan <- struct{}{} // for crawler
 		break

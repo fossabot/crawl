@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"sync"
 	"time"
 )
 
@@ -16,6 +17,8 @@ type crawler struct {
 	pending map[string]bool
 	todo    chan string
 	results chan *result
+	workerSync	sync.WaitGroup
+	workerStop	chan struct{}
 }
 
 type result struct {
@@ -38,6 +41,8 @@ func newCrawler(domain string, timeout time.Duration) (*crawler, error) {
 		pending: make(map[string]bool),
 		todo:    make(chan string, 100),
 		results: make(chan *result, 100),
+		workerSync: sync.WaitGroup{},
+		workerStop: make(chan struct{}),
 	}, nil
 }
 
@@ -69,21 +74,30 @@ func ScrapLinks(url string, timeout time.Duration) ([]string, error) {
 
 // scraper retrieves a webpage, parses it for links, keeps only domain or relative links, sanitises them, an returns the result
 func (c *crawler) scraper(url string) {
+	c.workerSync.Add(1)
+	defer c.workerSync.Done()
+
+	// Result will hold the links on success, or send as is on error
+	res := newResult(url, nil)
 
 	// Scrap and retrieve links
 	links, err := ScrapLinks(url, c.requestTimeout)
 	if err != nil {
 		log.Errorf("Encountered error on page '%s' : %s", url, err)
-		c.results <- newResult(url, nil)
-		return
+	} else {
+		// Filter links by current domain
+		links = c.filterHost(links)
+		res.links =&links
 	}
 
-	// Filter links by current domain
-	links = c.filterHost(links)
+	// Don't send results if we're being asked to stop
+	select {
+	case <-c.workerStop:
+		return
 
 	// Enqueue results
-	//log.Infof("Found %d links on page %s\n", len(links), url)
-	c.results <- newResult(url, &links)
+	case c.results <- res:
+	}
 }
 
 // download retrieves the web page pointed to by the given url
@@ -189,8 +203,9 @@ loop:
 		// Upon receiving a stop signal
 		case <-syn.stopChan:
 			log.Info("Stopping crawler.")
-			close(c.todo)
-			close(c.results)
+			close(c.workerStop)
+			c.workerSync.Wait()
+			fmt.Printf("Crawler visited a total of %d links starting from %s\n", len(c.visited), domain)
 			break loop
 
 		// Upon receiving a resulting from a worker scraping a page

@@ -16,8 +16,9 @@ import (
 type synchron struct {
 	timeout     time.Duration
 	group       sync.WaitGroup
-	timeoutChan chan time.Duration
 	stopChan    chan struct{}
+	stopFlag	bool
+	mutex		*sync.Mutex
 }
 
 // newSynchron returns an initialised synchron struct
@@ -25,12 +26,23 @@ func newSynchron(timeout time.Duration, nbParties int) *synchron {
 	s := &synchron{
 		timeout:     timeout,
 		group:       sync.WaitGroup{},
-		timeoutChan: make(chan time.Duration),
-		stopChan:    make(chan struct{}),
+		stopChan:    make(chan struct{}, 2),
+		stopFlag:	false,
+		mutex:		&sync.Mutex{},
 	}
 
 	s.group.Add(nbParties)
 	return s
+}
+
+// checkout allows checks on the state of timeout for synchronisation. Only First call of this function returns true.
+func (c *synchron) checkout() bool {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+
+	first := c.stopFlag == false
+	c.stopFlag = true
+	return first
 }
 
 // timer implements a timeout (should be called as a goroutine)
@@ -51,10 +63,13 @@ loop:
 
 		// When timeout is reached, inform of timeout, send signal, and quit
 		case <-time.After(syn.timeout):
-			syn.timeoutChan <- syn.timeout
-			// Send interrupt signal to ourselves, intercepted by signalHandler
-			p, _ := os.FindProcess(os.Getpid())
-			_ = p.Signal(os.Interrupt)
+
+			if syn.checkout() {
+				// Send interrupt signal to ourselves, intercepted by signalHandler
+				p, _ := os.FindProcess(os.Getpid())
+				_ = p.Signal(os.Interrupt)
+			}
+
 			break loop
 		}
 	}
@@ -68,16 +83,12 @@ func signalHandler(syn *synchron) {
 	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
 
 	for s := range sig {
-
-		if len(syn.timeoutChan) > 0 {
-			log.Infof("Timing out after %d seconds. Shutting down.", <-syn.timeoutChan)
+		if syn.checkout() {
+			log.Infof("Crawler received stop signal : ", s)
+			syn.stopChan <- struct{}{} // for timer
 		} else {
-			log.Infof("Crawler received signal : ", s.String())
-			if syn.timeout > 0 {
-				syn.stopChan <- struct{}{} // for timer
-			}
+			log.Infof("Timing out after %d seconds. Shutting down.", syn.timeout / time.Second)
 		}
-
 		syn.stopChan <- struct{}{} // for crawler
 		break
 	}
@@ -115,14 +126,13 @@ func Crawl(domain string, timeout time.Duration) (err error) {
 
 	syn := newSynchron(timeout, 3)
 
-	log.Info("Starting web crawler. You can interrupt the program any time with ctrl+c or ctrl+z.")
+	log.Info("Starting web crawler. You can interrupt the program any time with ctrl+c.")
 
 	go signalHandler(syn)
 	go timer(syn)
 	go crawl(domain, syn)
 
 	syn.group.Wait()
-	close(syn.timeoutChan)
 	close(syn.stopChan)
 
 	log.Info("Crawler now shutting down.")

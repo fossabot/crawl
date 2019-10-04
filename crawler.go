@@ -21,6 +21,7 @@ type result struct {
 	links *[]string
 }
 
+// newCrawler returns an initialised crawler struct
 func newCrawler(domain string) *crawler {
 	// todo : retain radical domain from url
 	return &crawler{
@@ -28,9 +29,11 @@ func newCrawler(domain string) *crawler {
 		visited: make(map[string]bool),
 		pending: make(map[string]bool),
 		todo:    make(chan string, 100),
+		results: make(chan *result, 100),
 	}
 }
 
+//  newResult returns an initialised result struct
 func newResult(url string, links *[]string) *result {
 	return &result{
 		url:   url,
@@ -38,8 +41,8 @@ func newResult(url string, links *[]string) *result {
 	}
 }
 
-// scrap retrieves a webpage, parses it for links, keeps only domain or relative links, sanitises them, an returns the result
-func (c *crawler) scrap(url string) {
+// ScrapLinks returns the links found in the web page pointed to by url
+func ScrapLinks(url string) ([]string, error) {
 
 	// Retrieve page
 	body, err := download(url)
@@ -50,18 +53,29 @@ func (c *crawler) scrap(url string) {
 		}
 	}()
 	if err != nil {
+		return nil, err
+	}
+
+	// Retrieve links
+	return extractLinks(url, body), nil
+}
+
+// scraper retrieves a webpage, parses it for links, keeps only domain or relative links, sanitises them, an returns the result
+func (c *crawler) scraper(url string) {
+
+	// Scrap and retrieve links
+	links, err := ScrapLinks(url)
+	if err != nil {
 		log.Errorf("Encountered error on page '%s' : %s", url, err)
 		c.results <- newResult(url, nil)
 		return
 	}
 
-	// Retrieve links
-	links := extractLinks(url, body)
-
 	// Filter links by current domain
 	links = c.filterDomain(links)
 
 	// Enqueue results
+	log.Infof("Found %d links on page %s\n", len(links), url)
 	c.results <- newResult(url, &links)
 }
 
@@ -141,7 +155,7 @@ func (c *crawler) newTask(url string) {
 	c.pending[url] = true
 
 	// Launch a worker goroutine on that link
-	go c.scrap(url)
+	go c.scraper(url)
 }
 
 // crawl manages worker goroutines scraping pages and prints results
@@ -171,6 +185,7 @@ loop:
 
 		// For every link that is left to visit in the queue
 		case url := <-c.todo:
+			log.Info("New task on " + url)
 			c.newTask(url)
 		}
 	}

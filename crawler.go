@@ -76,7 +76,7 @@ func (c *crawler) scraper(url string) {
 	}
 
 	// Filter links by current domain
-	links = c.filterDomain(links)
+	links = c.filterHost(links)
 
 	// Enqueue results
 	log.Infof("Found %d links on page %s\n", len(links), url)
@@ -96,8 +96,8 @@ func download(url string) (io.ReadCloser, error) {
 	return resp.Body, nil
 }
 
-// filterDomain filters out links that are different from the crawler's scope
-func (c *crawler) filterDomain(links []string) []string{
+// filterHost filters out links that are different from the crawler's scope
+func (c *crawler) filterHost(links []string) []string{
 	n := 0
 	for _, link := range links {
 		linkURL, _ := url.Parse(link)

@@ -1,8 +1,6 @@
 package crawl
 
 import (
-	"fmt"
-	log "github.com/sirupsen/logrus"
 	"io"
 	"net/http"
 	"net/url"
@@ -82,7 +80,7 @@ func (c *crawler) scraper(url string) {
 	// Scrap and retrieve links
 	links, err := ScrapLinks(url, c.requestTimeout)
 	if err != nil {
-		//log.Errorf("Encountered error on page '%s' : %s", url, err)
+		log.Errorf("Encountered error on page '%s' : %s", url, err)
 	} else {
 		// Filter links by current domain
 		links = c.filterHost(links)
@@ -106,6 +104,7 @@ func download(url string, timeout time.Duration) (io.ReadCloser, error) {
 		Timeout: timeout,
 	}
 
+	log.Tracef("Attempting download of %s.", url)
 	resp, err := client.Get(url)
 	if err != nil {
 		if resp != nil {
@@ -113,7 +112,7 @@ func download(url string, timeout time.Duration) (io.ReadCloser, error) {
 		}
 		return nil, err
 	}
-
+	log.Tracef("Download of %s succeeded.", url)
 	return resp.Body, nil
 }
 
@@ -126,7 +125,7 @@ func (c *crawler) filterHost(links []string) []string {
 			links[n] = link
 			n++
 		} else {
-			//log.Infof("Filtering out element ", link)
+			log.WithField("host", c.domain.Host).Tracef("Filtering out link to %s.", link)
 		}
 	}
 	return links[:n]
@@ -135,29 +134,31 @@ func (c *crawler) filterHost(links []string) []string {
 // filterLinks filters out links that have already been visited or are in pending treatment
 func (c *crawler) filterLinks(links []string) []string {
 	n := 0
+	// Only keep links that are neither pending or visited
 	for _, link := range links {
-		keep := true
 
-		// Check pending links
+		// If pending, skip
 		if _, ok := c.pending[link]; ok {
-			keep = false
+			log.WithField("status", "pending").Tracef("Discarding %s.", link)
+			continue
 		}
 
-		// Check visited links
+		// If visited, skip
 		if _, ok := c.visited[link]; ok {
-			keep = false
+			log.WithField("status", "pending").Tracef("Discarding %s.", link)
+			continue
 		}
 
 		// Keep the link
-		if keep {
-			links[n] = link
-			n++
-		}
+		links[n] = link
+		n++
 	}
 	return links[:n]
 }
 
 // handleResult treats the result of scraping a page for links
+// The url is taken off the pending tasks. If an error occurred, it is pushed back into the to-do queue,
+// if not, it is considered as visited.
 func (c *crawler) handleResult(result *result) {
 	delete(c.pending, result.url)
 
@@ -172,6 +173,7 @@ func (c *crawler) handleResult(result *result) {
 	c.visited[result.url] = true
 
 	// Filter out already visited links
+	log.Tracef("Filtering links for %s.", result.url)
 	filtered := c.filterLinks(*result.links)
 
 	// Add filtered list in queue of links to visit
@@ -180,7 +182,7 @@ func (c *crawler) handleResult(result *result) {
 	}
 
 	// Print out result
-	fmt.Printf("Found %d unvisited links on page %s : %s\n", len(filtered), result.url, filtered)
+	log.Infof("Found %d unvisited links on page %s : %s\n", len(filtered), result.url, filtered)
 }
 
 // newTask triggers a new visit on a link
@@ -205,12 +207,10 @@ func crawl(domain string, syn *synchron) {
 	ticker := time.NewTicker(time.Second)
 	c, err := newCrawler(domain, 4*time.Second)
 	if err != nil {
-		log.WithFields(log.Fields{"domain": domain}).Error(err)
+		log.WithField("domain", domain).Error(err)
 		goto quit
 	}
 	c.todo <- c.domain.String()
-
-
 
 loop:
 	for {
@@ -218,7 +218,6 @@ loop:
 
 		// Upon receiving a stop signal
 		case <-syn.stopChan:
-			log.Info("Stopping crawler.")
 			break loop
 
 		// Upon receiving a resulting from a worker scraping a page
@@ -239,8 +238,9 @@ loop:
 	}
 
 	close(c.workerStop)
+	log.Info("Stopping crawler.")
 	c.workerSync.Wait()
-	fmt.Printf("Crawler visited a total of %d links starting from %s\n", len(c.visited), domain)
+	log.Infof("Visited %d links starting from %s\n", len(c.visited), domain)
 quit:
 	ticker.Stop()
 	syn.sendQuitSignal()

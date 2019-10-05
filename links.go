@@ -3,7 +3,7 @@ package crawl
 import (
 	"errors"
 	"fmt"
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 	"golang.org/x/net/html"
 	"io"
 	"net/url"
@@ -13,29 +13,29 @@ import (
 // Links won't contain queries or fragments
 // It does not close the reader.
 func ExtractLinks(origin string, body io.Reader) []string {
-	tokenz := html.NewTokenizer(body)
+	tokens := html.NewTokenizer(body)
 
 	// This map is an intermediary container for found links, avoiding duplicates
 	links := make(map[string]bool)
 
 	for {
-		ttype := tokenz.Next()
+		typ := tokens.Next()
 
-		if ttype == html.ErrorToken {
+		if typ == html.ErrorToken {
 			break
 		}
 
-		token := tokenz.Token()
-		if ttype == html.StartTagToken && token.Data == "a" {
+		token := tokens.Token()
+		if typ == html.StartTagToken && token.Data == "a" {
 			// If it's an anchor, try get the link
 			if link, err := extractLink(origin, token); link != "" {
 				links[link] = true
 			} else {
 				if err != nil {
-					log.WithFields(log.Fields{
+					log.WithFields(logrus.Fields{
 						"page":  origin,
 						"token": token.String(),
-					}).Errorf("Error in token : %s", err)
+					}).Tracef("Error in parsing token : %s", err)
 				}
 			}
 		}
@@ -53,7 +53,7 @@ func extractLink(origin string, token html.Token) (string, error) {
 		}
 	}
 
-	return "", errors.New("no href found in token")
+	return "", nil
 }
 
 // sanitise fixes some things in supposed link :
@@ -81,7 +81,7 @@ func sanitise(origin string, link string) (string, error) {
 
 	stripQuery(u)
 
-	log.Trace("Rewrote '%s' to '%s'", link, u.String())
+	log.Tracef("Rewrote '%s' to '%s'", link, u.String())
 
 	return u.String(), nil
 }

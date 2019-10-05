@@ -163,7 +163,7 @@ func (c *crawler) handleResult(result *result) {
 
 	// If the download failed and links is nil
 	if result.links == nil {
-		// todo : handle pages that continuously fail on download (struct for each link with nb of retries)
+		// todo : handle pages that continuously fail on download (struct for each link with nb of retries?)
 		c.todo <- result.url
 		return
 	}
@@ -184,7 +184,6 @@ func (c *crawler) handleResult(result *result) {
 }
 
 // newTask triggers a new visit on a link
-// todo : change that name
 func (c *crawler) newTask(url string) {
 	// Add to pending tasks
 	c.pending[url] = true
@@ -200,7 +199,6 @@ func (c *crawler) checkProgress() bool {
 }
 
 // crawl manages worker goroutines scraping pages and prints results
-// todo : keep a time tracker for stats
 func crawl(domain string, syn *synchron) {
 	defer syn.group.Done()
 

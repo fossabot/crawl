@@ -5,7 +5,7 @@ The crawler scraps a page for links, follows them and scrapes them in the same f
 
 You can launch the app with or without a timeout (in seconds), like this :
 
-> go run app/crawl.go https://monzo.com (-timeout=10)
+> go run app/crawl.go (-timeout=10) https://monzo.com
 
 However the program was launched, you can interrupt it with ctrl+c.
 
@@ -13,13 +13,11 @@ However the program was launched, you can interrupt it with ctrl+c.
 
 - single domain scope
 - parallel scrawling
+- optional timeout
 - avoid loops on already visited links
 - usable as a package by calling Crawl() and ExtractLinks() functions
 
-## todo 
-- first argument as domain
-- add conditions for stop case / no more links to follow
-- fix todo
+## todo
 - orient logging level and either to file or stdout
 
 enhancements :

@@ -12,7 +12,9 @@ type crawler struct {
 	domain         *url.URL
 	requestTimeout time.Duration
 	visited        map[string]bool
-	pending        map[string]bool
+	pending        map[string]int
+	failed         map[string]bool
+	maxRetry       int
 	todo           chan string
 	results        chan *result
 	workerSync     sync.WaitGroup
@@ -22,10 +24,11 @@ type crawler struct {
 type result struct {
 	url   string
 	links *[]string
+	err   error
 }
 
 // newCrawler returns an initialised crawler struct
-func newCrawler(domain string, timeout time.Duration) (*crawler, error) {
+func newCrawler(domain string, timeout time.Duration, maxRetry int) (*crawler, error) {
 
 	dURL, err := url.Parse(domain)
 	if err != nil {
@@ -36,7 +39,9 @@ func newCrawler(domain string, timeout time.Duration) (*crawler, error) {
 		domain:         dURL,
 		requestTimeout: timeout,
 		visited:        make(map[string]bool),
-		pending:        make(map[string]bool),
+		pending:        make(map[string]int),
+		failed:         make(map[string]bool),
+		maxRetry:       maxRetry,
 		todo:           make(chan string, 100),
 		results:        make(chan *result, 100),
 		workerSync:     sync.WaitGroup{},
@@ -49,6 +54,7 @@ func newResult(url string, links *[]string) *result {
 	return &result{
 		url:   url,
 		links: links,
+		err:   nil,
 	}
 }
 
@@ -80,7 +86,7 @@ func (c *crawler) scraper(url string) {
 	// Scrap and retrieve links
 	links, err := ScrapLinks(url, c.requestTimeout)
 	if err != nil {
-		log.Errorf("Encountered error on page '%s' : %s", url, err)
+		res.err = err
 	} else {
 		// Filter links by current domain
 		links = c.filterHost(links)
@@ -157,20 +163,29 @@ func (c *crawler) filterLinks(links []string) []string {
 }
 
 // handleResult treats the result of scraping a page for links
-// The url is taken off the pending tasks. If an error occurred, it is pushed back into the to-do queue,
-// if not, it is considered as visited.
 func (c *crawler) handleResult(result *result) {
-	delete(c.pending, result.url)
 
-	// If the download failed and links is nil
-	if result.links == nil {
-		// todo : handle pages that continuously fail on download (struct for each link with nb of retries?)
+	// If the result contains an error, retry
+	if result.err != nil {
+
+		log.WithField("url", result.url).Tracef("Result returned with error : %s", result.err)
+
+		// If we tried to much, mark it as failed
+		if c.pending[result.url] >= c.maxRetry {
+			c.failed[result.url] = true
+			delete(c.pending, result.url)
+			log.Errorf("Discarding %d, page unreachable after %d attempts.\n", result.url, c.maxRetry)
+			return
+		}
+
+		// If we have not reached maximum retries, re-enqueue
 		c.todo <- result.url
 		return
 	}
 
 	// Change state from pending to visited
 	c.visited[result.url] = true
+	delete(c.pending, result.url)
 
 	// Filter out already visited links
 	log.Tracef("Filtering links for %s.", result.url)
@@ -188,7 +203,7 @@ func (c *crawler) handleResult(result *result) {
 // newTask triggers a new visit on a link
 func (c *crawler) newTask(url string) {
 	// Add to pending tasks
-	c.pending[url] = true
+	c.pending[url]++
 
 	// Launch a worker goroutine on that link
 	c.workerSync.Add(1)
@@ -205,7 +220,7 @@ func crawl(domain string, syn *synchron) {
 	defer syn.group.Done()
 
 	ticker := time.NewTicker(time.Second)
-	c, err := newCrawler(domain, 4*time.Second)
+	c, err := newCrawler(domain, 5*time.Second, 3)
 	if err != nil {
 		log.WithField("domain", domain).Error(err)
 		goto quit

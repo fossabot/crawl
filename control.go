@@ -3,13 +3,19 @@ package crawl
 import (
 	"errors"
 	"fmt"
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 	"net/url"
 	"os"
 	"os/signal"
 	"sync"
 	"syscall"
 	"time"
+)
+
+var (
+	log = logrus.New()
+	logFilePerms os.FileMode = 0666
+	logFilePath = "./crawler.log"
 )
 
 // synchron holds the synchronisation tools and parameters
@@ -48,6 +54,7 @@ func (syn *synchron) checkout() bool {
 // sendQuitSignal sends a signal only once, to signal shutdown
 func (syn *synchron) sendQuitSignal() {
 	if syn.checkout() {
+		log.Info("Initiating shutdown.")
 		// Send interrupt signal to ourselves, intercepted by signalHandler
 		p, _ := os.FindProcess(os.Getpid())
 		_ = p.Signal(os.Interrupt)
@@ -57,11 +64,22 @@ func (syn *synchron) sendQuitSignal() {
 	}
 }
 
+// log2File switches logging to be output to file only
+func log2File(logFile string) {
+	file, err := os.OpenFile(logFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, logFilePerms)
+	if err == nil {
+		log.Out = file
+	} else {
+		log.Info("Failed to log to file, using default stderr")
+	}
+}
+
 // timer implements a timeout (should be called as a goroutine)
 func timer(syn *synchron) {
 	defer syn.group.Done()
 
 	if syn.timeout <= 0 {
+		log.Info("No value assigned for timeout. Timer will not run.")
 		return
 	}
 
@@ -71,11 +89,12 @@ loop:
 
 		// Quit if keyboard interruption
 		case <-syn.stopChan:
+			log.Trace("Timer received stop message. Stopping Timer.")
 			break loop
 
 		// When timeout is reached, inform of timeout, send signal, and quit
 		case <-time.After(syn.timeout):
-			log.Infof("Timing out after %d seconds. Shutting down.", syn.timeout/time.Second)
+			log.Infof("Timing out after %d seconds.", syn.timeout/time.Second)
 			syn.sendQuitSignal()
 			break loop
 		}
@@ -89,9 +108,9 @@ func signalHandler(syn *synchron) {
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM, syscall.SIGKILL)
 
-	for s := range sig {
+	for range sig {
+		log.Trace("signalHandler received a signal. Stopping.")
 		if syn.checkout() {
-			log.Infof("Crawler received stop signal : ", s)
 			syn.stopChan <- struct{}{} // for timer
 			syn.stopChan <- struct{}{} // for crawler
 		}
@@ -130,8 +149,8 @@ func Crawl(domain string, timeout time.Duration) (err error) {
 	}
 
 	syn := newSynchron(timeout, 3)
-
-	log.Info("Starting web crawler. You can interrupt the program any time with ctrl+c.")
+	log.Infof("Starting web crawler. You can interrupt the program any time with ctrl+c. Logging to %s\n.", logFilePath)
+	log2File(logFilePath)
 
 	go signalHandler(syn)
 	go timer(syn)

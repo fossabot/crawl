@@ -44,4 +44,4 @@ script:
   - go run crawl.go https://bytema.re
 
 after_success:
-  - cd ../ && sonar-scanner -X
+  - sonar-scanner -X

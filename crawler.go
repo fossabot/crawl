@@ -1,6 +1,7 @@
 package crawl
 
 import (
+	"github.com/sirupsen/logrus"
 	"io"
 	"net/http"
 	"net/url"
@@ -112,7 +113,7 @@ func download(url string, timeout time.Duration) (io.ReadCloser, error) {
 		Timeout: timeout,
 	}
 
-	log.Tracef("Attempting download of %s.", url)
+	log.WithField("url", url).Tracef("Attempting download.")
 	resp, err := client.Get(url)
 	if err != nil {
 		if resp != nil {
@@ -120,7 +121,7 @@ func download(url string, timeout time.Duration) (io.ReadCloser, error) {
 		}
 		return nil, err
 	}
-	log.Tracef("Download of %s succeeded.", url)
+	log.WithField("url", url).Tracef("Download succeeded.")
 	return resp.Body, nil
 }
 
@@ -172,13 +173,12 @@ func (c *crawler) handleResultError(res *Result) {
 	if c.pending[res.Url] >= c.maxRetry {
 		c.failed[res.Url] = true
 		delete(c.pending, res.Url)
-		log.Errorf("Discarding %d, page unreachable after %d attempts.\n", res.Url, c.maxRetry)
+		log.WithField("url", res.Url).Errorf("Discarding. Page unreachable after %d attempts.\n", c.maxRetry)
 		return
 	}
 
 	// If we have not reached maximum retries, re-enqueue
 	c.todo <- res.Url
-	return
 }
 
 // handleResult treats the Result of scraping a page for links
@@ -194,8 +194,9 @@ func (c *crawler) handleResult(result *Result) {
 	delete(c.pending, result.Url)
 
 	// Filter out already visited links
-	log.Tracef("Filtering links for %s.", result.Url)
+	log.WithField("url", result.Url).Tracef("Filtering links.")
 	filtered := c.filterLinks(*result.Links)
+	result.Links = &filtered
 
 	// Add filtered list in queue of links to visit
 	for _, link := range filtered {
@@ -203,7 +204,10 @@ func (c *crawler) handleResult(result *Result) {
 	}
 
 	// Log Result and send them to caller
-	log.Infof("Found %d unvisited links on page %s : %s\n", len(filtered), result.Url, filtered)
+	log.WithFields(logrus.Fields{
+		"url": result.Url,
+		"links": filtered,
+	}).Infof("Found %d unvisited links.", len(filtered))
 	c.output <- result
 }
 
@@ -229,7 +233,7 @@ func crawl(domain string, syn *synchron) {
 	ticker := time.NewTicker(time.Second)
 	c, err := newCrawler(domain, syn.results, 5*time.Second, 3)
 	if err != nil {
-		log.WithField("domain", domain).Error(err)
+		log.WithField("url", domain).Error(err)
 		goto quit
 	}
 	c.todo <- c.domain.String()
@@ -253,16 +257,16 @@ loop:
 		// Every tick, verify if there are jobs or pending tasks left
 		case <-ticker.C:
 			if c.checkProgress() == false {
-				log.Info("No links left to explore.")
+				log.WithField("url", domain).Info("No links left to explore.")
 				break loop
 			}
 		}
 	}
 
 	close(c.workerStop)
-	log.Info("Stopping crawler.")
+	log.WithField("url", domain).Info("Stopping crawler.")
 	c.workerSync.Wait()
-	log.Infof("Visited %d links starting from %s\n", len(c.visited), domain)
+	log.WithField("url", domain).Infof("Visited %d links.", len(c.visited))
 quit:
 	ticker.Stop()
 	syn.sendQuitSignal()

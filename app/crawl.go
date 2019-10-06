@@ -29,7 +29,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	fmt.Printf("Mapping only shows non-visited links.")
+	fmt.Println("Mapping only shows non-visited links.")
 	for res := range resultChan {
 		fmt.Printf("%s -> %s\n", res.URL, *res.Links)
 	}

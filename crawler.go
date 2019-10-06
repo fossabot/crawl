@@ -25,7 +25,7 @@ type crawler struct {
 
 // Result holds the links of the web page pointed to by url, of the same host as the url
 type Result struct {
-	Url   string
+	URL   string
 	Links *[]string
 	err   error
 }
@@ -56,7 +56,7 @@ func newCrawler(domain string, output chan<- *Result, timeout time.Duration, max
 //  newResult returns an initialised Result struct
 func newResult(url string, links *[]string) *Result {
 	return &Result{
-		Url:   url,
+		URL:   url,
 		Links: links,
 		err:   nil,
 	}
@@ -168,18 +168,18 @@ func (c *crawler) filterLinks(links []string) []string {
 
 // handleResultError handles the error a Result has upon return of a link scraping attempt
 func (c *crawler) handleResultError(res *Result) {
-	log.WithField("url", res.Url).Tracef("Result returned with error : %s", res.err)
+	log.WithField("url", res.URL).Tracef("Result returned with error : %s", res.err)
 
 	// If we tried to much, mark it as failed
-	if c.pending[res.Url] >= c.maxRetry {
-		c.failed[res.Url] = true
-		delete(c.pending, res.Url)
-		log.WithField("url", res.Url).Errorf("Discarding. Page unreachable after %d attempts.\n", c.maxRetry)
+	if c.pending[res.URL] >= c.maxRetry {
+		c.failed[res.URL] = true
+		delete(c.pending, res.URL)
+		log.WithField("url", res.URL).Errorf("Discarding. Page unreachable after %d attempts.\n", c.maxRetry)
 		return
 	}
 
 	// If we have not reached maximum retries, re-enqueue
-	c.todo <- res.Url
+	c.todo <- res.URL
 }
 
 // handleResult treats the Result of scraping a page for links
@@ -191,11 +191,11 @@ func (c *crawler) handleResult(result *Result) {
 	}
 
 	// Change state from pending to visited
-	c.visited[result.Url] = true
-	delete(c.pending, result.Url)
+	c.visited[result.URL] = true
+	delete(c.pending, result.URL)
 
 	// Filter out already visited links
-	log.WithField("url", result.Url).Tracef("Filtering links.")
+	log.WithField("url", result.URL).Tracef("Filtering links.")
 	filtered := c.filterLinks(*result.Links)
 	result.Links = &filtered
 
@@ -206,7 +206,7 @@ func (c *crawler) handleResult(result *Result) {
 
 	// Log Result and send them to caller
 	log.WithFields(logrus.Fields{
-		"url":   result.Url,
+		"url":   result.URL,
 		"links": filtered,
 	}).Infof("Found %d unvisited links.", len(filtered))
 	c.output <- result

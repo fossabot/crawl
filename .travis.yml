@@ -33,8 +33,6 @@ matrix:
   include:
     - os: linux
       dist: trusty
-      after_success:
-        - sonar-scanner -X
     - os: osx
     - os: windows
 
@@ -44,4 +42,4 @@ install:
 
 script:
   - go run crawl.go https://bytema.re
-
+  - sonar-scanner -X

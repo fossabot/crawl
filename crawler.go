@@ -19,6 +19,7 @@ type crawler struct {
 	results        chan *result
 	workerSync     sync.WaitGroup
 	workerStop     chan struct{}
+	output		   chan<- *result
 }
 
 type result struct {
@@ -28,7 +29,7 @@ type result struct {
 }
 
 // newCrawler returns an initialised crawler struct
-func newCrawler(domain string, timeout time.Duration, maxRetry int) (*crawler, error) {
+func newCrawler(domain string, output chan<- *result, timeout time.Duration, maxRetry int) (*crawler, error) {
 
 	dURL, err := url.Parse(domain)
 	if err != nil {
@@ -46,6 +47,7 @@ func newCrawler(domain string, timeout time.Duration, maxRetry int) (*crawler, e
 		results:        make(chan *result, 100),
 		workerSync:     sync.WaitGroup{},
 		workerStop:     make(chan struct{}),
+		output:			output,
 	}, nil
 }
 
@@ -162,24 +164,28 @@ func (c *crawler) filterLinks(links []string) []string {
 	return links[:n]
 }
 
+// handleResultError handles the error a result has upon return of a link scraping attempt
+func (c *crawler) handleResultError(res *result) {
+	log.WithField("url", res.url).Tracef("Result returned with error : %s", res.err)
+
+	// If we tried to much, mark it as failed
+	if c.pending[res.url] >= c.maxRetry {
+		c.failed[res.url] = true
+		delete(c.pending, res.url)
+		log.Errorf("Discarding %d, page unreachable after %d attempts.\n", res.url, c.maxRetry)
+		return
+	}
+
+	// If we have not reached maximum retries, re-enqueue
+	c.todo <- res.url
+	return
+}
+
 // handleResult treats the result of scraping a page for links
 func (c *crawler) handleResult(result *result) {
 
-	// If the result contains an error, retry
 	if result.err != nil {
-
-		log.WithField("url", result.url).Tracef("Result returned with error : %s", result.err)
-
-		// If we tried to much, mark it as failed
-		if c.pending[result.url] >= c.maxRetry {
-			c.failed[result.url] = true
-			delete(c.pending, result.url)
-			log.Errorf("Discarding %d, page unreachable after %d attempts.\n", result.url, c.maxRetry)
-			return
-		}
-
-		// If we have not reached maximum retries, re-enqueue
-		c.todo <- result.url
+		c.handleResultError(result)
 		return
 	}
 
@@ -196,8 +202,9 @@ func (c *crawler) handleResult(result *result) {
 		c.todo <- link
 	}
 
-	// Print out result
+	// Log result and send them to caller
 	log.Infof("Found %d unvisited links on page %s : %s\n", len(filtered), result.url, filtered)
+	c.output <- result
 }
 
 // newTask triggers a new visit on a link
@@ -220,7 +227,7 @@ func crawl(domain string, syn *synchron) {
 	defer syn.group.Done()
 
 	ticker := time.NewTicker(time.Second)
-	c, err := newCrawler(domain, 5*time.Second, 3)
+	c, err := newCrawler(domain, syn.links, 5*time.Second, 3)
 	if err != nil {
 		log.WithField("domain", domain).Error(err)
 		goto quit
@@ -259,4 +266,5 @@ loop:
 quit:
 	ticker.Stop()
 	syn.sendQuitSignal()
+	close(syn.links)
 }

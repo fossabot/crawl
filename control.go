@@ -13,14 +13,15 @@ import (
 )
 
 var (
-	log = logrus.New()
+	log                      = logrus.New()
 	logFilePerms os.FileMode = 0666
-	logFilePath = "./crawler.log"
+	logFilePath              = "./crawler.log"
 )
 
 // synchron holds the synchronisation tools and parameters
 type synchron struct {
 	timeout  time.Duration
+	links	 chan *result
 	group    sync.WaitGroup
 	stopChan chan struct{}
 	stopFlag bool
@@ -31,6 +32,7 @@ type synchron struct {
 func newSynchron(timeout time.Duration, nbParties int) *synchron {
 	s := &synchron{
 		timeout:  timeout,
+		links:	  make(chan *result),
 		group:    sync.WaitGroup{},
 		stopChan: make(chan struct{}, 2),
 		stopFlag: false,
@@ -149,12 +151,18 @@ func Crawl(domain string, timeout time.Duration) (err error) {
 	}
 
 	syn := newSynchron(timeout, 3)
-	log.Infof("Starting web crawler. You can interrupt the program any time with ctrl+c. Logging to %s\n.", logFilePath)
+	log.Infof("Starting web crawler. You can interrupt the program any time with ctrl+c. Logging to %s.", logFilePath)
 	log2File(logFilePath)
 
 	go signalHandler(syn)
 	go timer(syn)
 	go crawl(domain, syn)
+
+	log.Info("Controller waiting for links.")
+
+	for res := range syn.links {
+		fmt.Printf("%s -> %s\n", res.url, *res.links)
+	}
 
 	syn.group.Wait()
 	close(syn.stopChan)

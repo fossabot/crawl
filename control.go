@@ -62,13 +62,11 @@ func signalHandler(syn *synchron) {
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
 
-	for range sig {
-		log.Trace("signalHandler received a signal. Stopping.")
-		if syn.checkout() {
-			syn.stopChan <- struct{}{} // for timer
-			syn.stopChan <- struct{}{} // for crawler
-		}
-		return
+	_ = <- sig
+	log.Trace("signalHandler received a signal. Stopping.")
+	if syn.checkout() {
+		syn.stopChan <- struct{}{} // for timer
+		syn.stopChan <- struct{}{} // for crawler
 	}
 }
 

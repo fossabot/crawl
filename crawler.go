@@ -23,6 +23,7 @@ type crawler struct {
 	output         chan<- *Result
 }
 
+// Result holds the links of the web page pointed to by url, of the same host as the url
 type Result struct {
 	Url   string
 	Links *[]string
@@ -205,7 +206,7 @@ func (c *crawler) handleResult(result *Result) {
 
 	// Log Result and send them to caller
 	log.WithFields(logrus.Fields{
-		"url": result.Url,
+		"url":   result.Url,
 		"links": filtered,
 	}).Infof("Found %d unvisited links.", len(filtered))
 	c.output <- result

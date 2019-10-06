@@ -28,16 +28,9 @@ func extractLinks(origin string, body io.Reader) []string {
 		token := tokens.Token()
 		if typ == html.StartTagToken && token.Data == "a" {
 			// If it's an anchor, try get the link
-			link, err := extractLink(origin, token)
-			if link != "" {
+			if link := extractLink(origin, token); link != "" {
 				links[link] = true
 				continue
-			}
-			if err != nil {
-				log.WithFields(logrus.Fields{
-					"url":   origin,
-					"token": token.String(),
-				}).Tracef("Error in parsing token : %s", err)
 			}
 		}
 	}
@@ -46,15 +39,22 @@ func extractLinks(origin string, body io.Reader) []string {
 }
 
 // extractLink tries to return the link inside the token
-func extractLink(origin string, token html.Token) (string, error) {
+func extractLink(origin string, token html.Token) string {
 	// get href value
 	for _, a := range token.Attr {
 		if a.Key == "href" {
-			return sanitise(origin, a.Val)
+			link, err := sanitise(origin, a.Val)
+			if err != nil {
+				log.WithFields(logrus.Fields{
+					"url":   origin,
+					"token": token.String(),
+				}).Tracef("Error in parsing token : %s", err)
+			}
+			return link
 		}
 	}
 
-	return "", nil
+	return ""
 }
 
 // sanitise fixes some things in supposed link :
@@ -94,11 +94,11 @@ func stripQuery(link *url.URL) {
 }
 
 // mapToSlice returns a slice of strings containing the map's keys
-func mapToSlice(_map map[string]bool) []string {
+func mapToSlice(links map[string]bool) []string {
 	// Extract the keys from map into a slice
-	keys := make([]string, len(_map))
+	keys := make([]string, len(links))
 	i := 0
-	for k := range _map {
+	for k := range links {
 		keys[i] = k
 		i++
 	}

@@ -9,10 +9,10 @@ import (
 	"net/url"
 )
 
-// ExtractLinks returns a slice of all links from an http.Get response body like reader object.
+// extractLinks returns a slice of all links from an http.Get response body like reader object.
 // Links won't contain queries or fragments
 // It does not close the reader.
-func ExtractLinks(origin string, body io.Reader) []string {
+func extractLinks(origin string, body io.Reader) []string {
 	tokens := html.NewTokenizer(body)
 
 	// This map is an intermediary container for found links, avoiding duplicates

@@ -77,7 +77,7 @@ func ScrapLinks(url string, timeout time.Duration) ([]string, error) {
 	}
 
 	// Retrieve links
-	return ExtractLinks(url, body), nil
+	return extractLinks(url, body), nil
 }
 
 // scraper retrieves a webpage, parses it for links, keeps only domain or relative links, sanitises them, an returns the Result

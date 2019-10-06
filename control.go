@@ -48,7 +48,7 @@ func (syn *synchron) checkout() bool {
 	syn.mutex.Lock()
 	defer syn.mutex.Unlock()
 
-	first := syn.stopFlag == false
+	first := !syn.stopFlag // only true if it was false first
 	syn.stopFlag = true
 	return first
 }
@@ -109,7 +109,7 @@ func signalHandler(syn *synchron) {
 	defer syn.group.Done()
 
 	sig := make(chan os.Signal, 1)
-	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM, syscall.SIGKILL)
+	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
 
 	for range sig {
 		log.Trace("signalHandler received a signal. Stopping.")
@@ -117,7 +117,7 @@ func signalHandler(syn *synchron) {
 			syn.stopChan <- struct{}{} // for timer
 			syn.stopChan <- struct{}{} // for crawler
 		}
-		break
+		return
 	}
 }
 
@@ -144,9 +144,9 @@ func validateInput(domain string, timeout time.Duration) error {
 	return nil
 }
 
-// Crawl returns a channel on which it will report links as they come during the crawling.
+// StreamLinks returns a channel on which it will report links as they come during the crawling.
 // The timeout parameter allows for a time frame to crawl for.
-func Crawl(domain string, timeout time.Duration) (outputChan chan *Result, err error) {
+func StreamLinks(domain string, timeout time.Duration) (outputChan chan *Result, err error) {
 
 	if err = validateInput(domain, timeout); err != nil {
 		return nil, err
@@ -170,18 +170,16 @@ func Crawl(domain string, timeout time.Duration) (outputChan chan *Result, err e
 	return syn.results, nil
 }
 
-// CrawlAsync returns all visited links on crawling until exhaustion or up until timeout is reached.
-func CrawlAsync(domain string, timeout time.Duration) ([]string, error) {
-	results, err := Crawl(domain, timeout)
+// FetchLinks returns all visited links on crawling until exhaustion or up until timeout is reached.
+func FetchLinks(domain string, timeout time.Duration) ([]string, error) {
+	results, err := StreamLinks(domain, timeout)
 	if err != nil {
 		return nil, err
 	}
-	links := make([]string, 100) // todo : tradeoff here, look if we really need that
+	links := make([]string, 100) // todo : trade-off here, look if we really need that
 
 	for res := range results {
-		for _, link := range *res.Links {
-			links = append(links, link)
-		}
+		links = append(links, *res.Links...)
 	}
 
 	return links, nil

@@ -15,13 +15,21 @@ dist: trusty
 
 branches:
 only:
-  - dev
+  - master
 
-addons:
-  sonarcloud:
-    organization: "bytemare-github"
-    token:
-      secure: ${SONAR_TOKEN}
+matrix:
+  include:
+    - os: linux
+      dist: trusty
+      addons:
+        sonarcloud:
+          organization: "bytemare-github"
+          token:
+            secure: ${SONAR_TOKEN}
+    - os: osx
+    - os: windows
+
+
 git:
   depth: false # Sonar doesn't like shallow clones
 

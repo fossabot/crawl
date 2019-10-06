@@ -28,15 +28,16 @@ func extractLinks(origin string, body io.Reader) []string {
 		token := tokens.Token()
 		if typ == html.StartTagToken && token.Data == "a" {
 			// If it's an anchor, try get the link
-			if link, err := extractLink(origin, token); link != "" {
+			link, err := extractLink(origin, token)
+			if link != "" {
 				links[link] = true
-			} else {
-				if err != nil {
-					log.WithFields(logrus.Fields{
-						"page":  origin,
-						"token": token.String(),
-					}).Tracef("Error in parsing token : %s", err)
-				}
+				continue
+			}
+			if err != nil {
+				log.WithFields(logrus.Fields{
+					"url":  origin,
+					"token": token.String(),
+				}).Tracef("Error in parsing token : %s", err)
 			}
 		}
 	}
@@ -81,7 +82,7 @@ func sanitise(origin string, link string) (string, error) {
 
 	stripQuery(u)
 
-	log.Tracef("Rewrote '%s' to '%s'", link, u.String())
+	log.WithField("url", origin).Tracef("Rewrote '%s' to '%s'", link, u.String())
 
 	return u.String(), nil
 }

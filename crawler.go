@@ -275,7 +275,7 @@ loop:
 
 		// Every tick, verify if there are jobs or pending tasks left
 		case <-ticker.C:
-			if c.checkProgress() == false {
+			if !c.checkProgress() {
 				log.WithField("url", domain).Info("No links left to explore.")
 				break loop
 			}

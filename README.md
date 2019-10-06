@@ -15,10 +15,9 @@ However the program was launched, you can interrupt it with ctrl+c.
 - parallel scrawling
 - optional timeout
 - avoid loops on already visited links
-- usable as a package by calling Crawl() and ExtractLinks() functions
+- usable as a package by calling Crawl(), CrawlAsync() and ScrapLinks() functions
 
 ## todo
-- orient logging level and either to file or stdout
-
-enhancements :
-- make the crawler report back to a caller provided channel
+- unit tests
+- platform tests
+- coverage

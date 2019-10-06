@@ -227,17 +227,35 @@ func (c *crawler) checkProgress() bool {
 	return len(c.todo) != 0 || len(c.pending) != 0
 }
 
+// initialiseCrawler initialises and returns a new crawler struct
+func initialiseCrawler(domain string, syn *synchron) *crawler {
+	c, err := newCrawler(domain, syn.results, 5*time.Second, 3)
+	if err != nil {
+		log.WithField("url", domain).Error(err)
+		syn.quitCrawler()
+		return nil
+	}
+	c.todo <- c.domain.String()
+	return c
+}
+
+// quitCrawler initiates the shutdown process of the crawler
+func (c *crawler) prepareCrawlerShutdown(syn *synchron) {
+	close(c.workerStop)
+	log.WithField("url", c.domain).Info("Stopping crawler.")
+	c.workerSync.Wait()
+	log.WithField("url", c.domain).Infof("Visited %d links.", len(c.visited))
+}
+
 // crawl manages worker goroutines scraping pages and prints results
 func crawl(domain string, syn *synchron) {
 	defer syn.group.Done()
 
-	ticker := time.NewTicker(time.Second)
-	c, err := newCrawler(domain, syn.results, 5*time.Second, 3)
-	if err != nil {
-		log.WithField("url", domain).Error(err)
-		goto quit
+	c := initialiseCrawler(domain, syn)
+	if c == nil {
+		return
 	}
-	c.todo <- c.domain.String()
+	ticker := time.NewTicker(time.Second)
 
 loop:
 	for {
@@ -264,12 +282,7 @@ loop:
 		}
 	}
 
-	close(c.workerStop)
-	log.WithField("url", domain).Info("Stopping crawler.")
-	c.workerSync.Wait()
-	log.WithField("url", domain).Infof("Visited %d links.", len(c.visited))
-quit:
 	ticker.Stop()
-	syn.sendQuitSignal()
-	close(syn.results)
+	c.prepareCrawlerShutdown(syn)
+	syn.quitCrawler()
 }

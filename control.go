@@ -62,7 +62,8 @@ func signalHandler(syn *synchron) {
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
 
-	_ = <-sig
+	// Block until a signal is received
+	<-sig
 	log.Trace("signalHandler received a signal. Stopping.")
 	fmt.Println("Stopping Crawler.")
 	if syn.checkout() {

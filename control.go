@@ -143,8 +143,8 @@ func validateInput(domain string, timeout time.Duration) error {
 	return nil
 }
 
-// Crawl returns a channel on which it will report links during the crawling.
-// The timeout parameters allows for a time frame to crawl for.
+// Crawl returns a channel on which it will report links as they come during the crawling.
+// The timeout parameter allows for a time frame to crawl for.
 func Crawl(domain string, timeout time.Duration) (outputChan chan *Result, err error) {
 
 	if err = validateInput(domain, timeout); err != nil {
@@ -169,7 +169,7 @@ func Crawl(domain string, timeout time.Duration) (outputChan chan *Result, err e
 	return syn.results, nil
 }
 
-// CrawlAsync returns all links found on crawling or up until timeout is reached.
+// CrawlAsync returns all visited links on crawling until exhaustion or up until timeout is reached.
 func CrawlAsync(domain string, timeout time.Duration) ([]string, error) {
 	results, err := Crawl(domain, timeout)
 	if err != nil {

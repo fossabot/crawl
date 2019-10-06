@@ -1,7 +1,7 @@
 language: go
 
 go:
-  - 1.12
+  #- 1.12
   - 1.13
 
 env:
@@ -42,4 +42,4 @@ install:
 
 script:
   - go run crawl.go https://bytema.re
-  - sonar-scanner -X
+  - cd ../ && sonar-scanner -X

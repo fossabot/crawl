@@ -16,20 +16,20 @@ type crawler struct {
 	failed         map[string]bool
 	maxRetry       int
 	todo           chan string
-	results        chan *result
+	results        chan *Result
 	workerSync     sync.WaitGroup
 	workerStop     chan struct{}
-	output		   chan<- *result
+	output         chan<- *Result
 }
 
-type result struct {
-	url   string
-	links *[]string
+type Result struct {
+	Url   string
+	Links *[]string
 	err   error
 }
 
 // newCrawler returns an initialised crawler struct
-func newCrawler(domain string, output chan<- *result, timeout time.Duration, maxRetry int) (*crawler, error) {
+func newCrawler(domain string, output chan<- *Result, timeout time.Duration, maxRetry int) (*crawler, error) {
 
 	dURL, err := url.Parse(domain)
 	if err != nil {
@@ -44,18 +44,18 @@ func newCrawler(domain string, output chan<- *result, timeout time.Duration, max
 		failed:         make(map[string]bool),
 		maxRetry:       maxRetry,
 		todo:           make(chan string, 100),
-		results:        make(chan *result, 100),
+		results:        make(chan *Result, 100),
 		workerSync:     sync.WaitGroup{},
 		workerStop:     make(chan struct{}),
-		output:			output,
+		output:         output,
 	}, nil
 }
 
-//  newResult returns an initialised result struct
-func newResult(url string, links *[]string) *result {
-	return &result{
-		url:   url,
-		links: links,
+//  newResult returns an initialised Result struct
+func newResult(url string, links *[]string) *Result {
+	return &Result{
+		Url:   url,
+		Links: links,
 		err:   nil,
 	}
 }
@@ -78,7 +78,7 @@ func ScrapLinks(url string, timeout time.Duration) ([]string, error) {
 	return ExtractLinks(url, body), nil
 }
 
-// scraper retrieves a webpage, parses it for links, keeps only domain or relative links, sanitises them, an returns the result
+// scraper retrieves a webpage, parses it for links, keeps only domain or relative links, sanitises them, an returns the Result
 func (c *crawler) scraper(url string) {
 	defer c.workerSync.Done()
 
@@ -92,7 +92,7 @@ func (c *crawler) scraper(url string) {
 	} else {
 		// Filter links by current domain
 		links = c.filterHost(links)
-		res.links = &links
+		res.Links = &links
 	}
 
 	// Don't send results if we're being asked to stop
@@ -164,25 +164,25 @@ func (c *crawler) filterLinks(links []string) []string {
 	return links[:n]
 }
 
-// handleResultError handles the error a result has upon return of a link scraping attempt
-func (c *crawler) handleResultError(res *result) {
-	log.WithField("url", res.url).Tracef("Result returned with error : %s", res.err)
+// handleResultError handles the error a Result has upon return of a link scraping attempt
+func (c *crawler) handleResultError(res *Result) {
+	log.WithField("url", res.Url).Tracef("Result returned with error : %s", res.err)
 
 	// If we tried to much, mark it as failed
-	if c.pending[res.url] >= c.maxRetry {
-		c.failed[res.url] = true
-		delete(c.pending, res.url)
-		log.Errorf("Discarding %d, page unreachable after %d attempts.\n", res.url, c.maxRetry)
+	if c.pending[res.Url] >= c.maxRetry {
+		c.failed[res.Url] = true
+		delete(c.pending, res.Url)
+		log.Errorf("Discarding %d, page unreachable after %d attempts.\n", res.Url, c.maxRetry)
 		return
 	}
 
 	// If we have not reached maximum retries, re-enqueue
-	c.todo <- res.url
+	c.todo <- res.Url
 	return
 }
 
-// handleResult treats the result of scraping a page for links
-func (c *crawler) handleResult(result *result) {
+// handleResult treats the Result of scraping a page for links
+func (c *crawler) handleResult(result *Result) {
 
 	if result.err != nil {
 		c.handleResultError(result)
@@ -190,20 +190,20 @@ func (c *crawler) handleResult(result *result) {
 	}
 
 	// Change state from pending to visited
-	c.visited[result.url] = true
-	delete(c.pending, result.url)
+	c.visited[result.Url] = true
+	delete(c.pending, result.Url)
 
 	// Filter out already visited links
-	log.Tracef("Filtering links for %s.", result.url)
-	filtered := c.filterLinks(*result.links)
+	log.Tracef("Filtering links for %s.", result.Url)
+	filtered := c.filterLinks(*result.Links)
 
 	// Add filtered list in queue of links to visit
 	for _, link := range filtered {
 		c.todo <- link
 	}
 
-	// Log result and send them to caller
-	log.Infof("Found %d unvisited links on page %s : %s\n", len(filtered), result.url, filtered)
+	// Log Result and send them to caller
+	log.Infof("Found %d unvisited links on page %s : %s\n", len(filtered), result.Url, filtered)
 	c.output <- result
 }
 
@@ -227,7 +227,7 @@ func crawl(domain string, syn *synchron) {
 	defer syn.group.Done()
 
 	ticker := time.NewTicker(time.Second)
-	c, err := newCrawler(domain, syn.links, 5*time.Second, 3)
+	c, err := newCrawler(domain, syn.results, 5*time.Second, 3)
 	if err != nil {
 		log.WithField("domain", domain).Error(err)
 		goto quit
@@ -266,5 +266,5 @@ loop:
 quit:
 	ticker.Stop()
 	syn.sendQuitSignal()
-	close(syn.links)
+	close(syn.results)
 }

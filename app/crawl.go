@@ -23,7 +23,11 @@ func main() {
 	domain := flag.Args()[0]
 
 	// Launch crawler
-	err := crawl.Crawl(domain, time.Duration(*timeout)*time.Second)
+	resultChan, err := crawl.Crawl(domain, time.Duration(*timeout)*time.Second)
+	fmt.Printf("Mapping only shows non-visited links.")
+	for res := range resultChan {
+		fmt.Printf("%s -> %s\n", res.Url, *res.Links)
+	}
 
 	if err != nil {
 		fmt.Printf("Error : %s\n", err)

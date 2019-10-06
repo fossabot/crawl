@@ -15,13 +15,13 @@ import (
 var (
 	log                      = logrus.New()
 	logFilePerms os.FileMode = 0666
-	logFilePath              = "./crawler.log"
+	logFilePath              = "./log-crawler.log"
 )
 
 // synchron holds the synchronisation tools and parameters
 type synchron struct {
 	timeout  time.Duration
-	links	 chan *result
+	results  chan *Result
 	group    sync.WaitGroup
 	stopChan chan struct{}
 	stopFlag bool
@@ -32,7 +32,7 @@ type synchron struct {
 func newSynchron(timeout time.Duration, nbParties int) *synchron {
 	s := &synchron{
 		timeout:  timeout,
-		links:	  make(chan *result),
+		results:  make(chan *Result),
 		group:    sync.WaitGroup{},
 		stopChan: make(chan struct{}, 2),
 		stopFlag: false,
@@ -143,31 +143,45 @@ func validateInput(domain string, timeout time.Duration) error {
 	return nil
 }
 
-// Crawl implements the crawler with a control frame (timeout and/or interruption)
-func Crawl(domain string, timeout time.Duration) (err error) {
+// Crawl returns a channel on which it will report links during the crawling.
+// The timeout parameters allows for a time frame to crawl for.
+func Crawl(domain string, timeout time.Duration) (outputChan chan *Result, err error) {
 
 	if err = validateInput(domain, timeout); err != nil {
-		return err
+		return nil, err
 	}
 
 	syn := newSynchron(timeout, 3)
 	log.Infof("Starting web crawler. You can interrupt the program any time with ctrl+c. Logging to %s.", logFilePath)
 	log2File(logFilePath)
 
-	go signalHandler(syn)
-	go timer(syn)
-	go crawl(domain, syn)
+	go func() {
+		go signalHandler(syn)
+		go timer(syn)
+		go crawl(domain, syn)
 
-	log.Info("Controller waiting for links.")
+		syn.group.Wait()
+		close(syn.stopChan)
 
-	for res := range syn.links {
-		fmt.Printf("%s -> %s\n", res.url, *res.links)
+		log.Info("Crawler shutting down.")
+	}()
+
+	return syn.results, nil
+}
+
+// CrawlAsync returns all links found on crawling or up until timeout is reached.
+func CrawlAsync(domain string, timeout time.Duration) ([]string, error) {
+	results, err := Crawl(domain, timeout)
+	if err != nil {
+		return nil, err
+	}
+	links := make([]string, 100) // todo : tradeoff here, look if we really need that
+
+	for res := range results {
+		for _, link := range *res.Links {
+			links = append(links, link)
+		}
 	}
 
-	syn.group.Wait()
-	close(syn.stopChan)
-
-	log.Info("Crawler shutting down.")
-
-	return err
+	return links, nil
 }

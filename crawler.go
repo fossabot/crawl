@@ -10,17 +10,33 @@ import (
 )
 
 type crawler struct {
+	task
+	workers
+	parameters
+	output         chan<- *Result
+}
+
+type parameters struct {
 	domain         *url.URL
 	requestTimeout time.Duration
-	visited        map[string]bool
-	pending        map[string]int
-	failed         map[string]bool
 	maxRetry       int
+}
+
+type linkStates struct {
+	pending        map[string]int
+	visited        map[string]bool
+	failed         map[string]bool
+}
+
+type task struct {
+	linkStates
 	todo           chan string
 	results        chan *Result
+}
+
+type workers struct {
 	workerSync     sync.WaitGroup
 	workerStop     chan struct{}
-	output         chan<- *Result
 }
 
 // Result holds the links of the web page pointed to by url, of the same host as the url
@@ -39,16 +55,24 @@ func newCrawler(domain string, output chan<- *Result, timeout time.Duration, max
 	}
 
 	return &crawler{
-		domain:         dURL,
-		requestTimeout: timeout,
-		visited:        make(map[string]bool),
-		pending:        make(map[string]int),
-		failed:         make(map[string]bool),
-		maxRetry:       maxRetry,
-		todo:           make(chan string, 100),
-		results:        make(chan *Result, 100),
-		workerSync:     sync.WaitGroup{},
-		workerStop:     make(chan struct{}),
+		task:	task{
+			linkStates:		linkStates{
+				visited:        make(map[string]bool),
+				pending:        make(map[string]int),
+				failed:         make(map[string]bool),
+			},
+			todo:           make(chan string, 100),
+			results:        make(chan *Result, 100),
+		},
+		workers:	workers{
+			workerSync: sync.WaitGroup{},
+			workerStop: make(chan struct{}),
+		},
+		parameters:	parameters{
+			domain:         dURL,
+			requestTimeout: timeout,
+			maxRetry:       maxRetry,
+		},
 		output:         output,
 	}, nil
 }

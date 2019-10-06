@@ -42,7 +42,6 @@ install:
 
 script:
   - go run crawl.go https://bytema.re
-  - sonar-scanner
 
 after_success:
   - cd ../ && sonar-scanner -X

@@ -13,6 +13,10 @@ os:
   - osx
 dist: trusty
 
+branches:
+only:
+  - dev
+
 addons:
   sonarcloud:
     organization: "bytemare-github"

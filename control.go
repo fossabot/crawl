@@ -74,6 +74,7 @@ func log2File(logFile string) {
 	} else {
 		log.Info("Failed to log to file, using default stderr")
 	}
+	log.SetFormatter(&logrus.JSONFormatter{})
 }
 
 // timer implements a timeout (should be called as a goroutine)

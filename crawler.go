@@ -266,9 +266,9 @@ func initialiseCrawler(domain string, syn *synchron) *crawler {
 // quitCrawler initiates the shutdown process of the crawler
 func (c *crawler) prepareCrawlerShutdown(syn *synchron) {
 	close(c.workerStop)
-	log.WithField("url", c.domain).Info("Stopping crawler.")
+	log.WithField("url", c.domain.String()).Info("Stopping crawler.")
 	c.workerSync.Wait()
-	log.WithField("url", c.domain).Infof("Visited %d links.", len(c.visited))
+	log.WithField("url", c.domain.String()).Infof("Visited %d links.", len(c.visited))
 }
 
 // crawl manages worker goroutines scraping pages and prints results

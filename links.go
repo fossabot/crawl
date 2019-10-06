@@ -35,7 +35,7 @@ func extractLinks(origin string, body io.Reader) []string {
 			}
 			if err != nil {
 				log.WithFields(logrus.Fields{
-					"url":  origin,
+					"url":   origin,
 					"token": token.String(),
 				}).Tracef("Error in parsing token : %s", err)
 			}

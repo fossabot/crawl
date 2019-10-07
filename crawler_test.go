@@ -6,50 +6,41 @@ import (
 	"time"
 )
 
-func TestFetchLinks(t *testing.T){
-	// With empty url
-	url := ""
-	timeout := 0
-	output, err := crawl.FetchLinks(url, time.Duration(timeout))
-	if err == nil || output != nil {
-		t.Error("StreamLinks returned without error, but url is empty.")
+type Test struct {
+	url	string
+	timeout	time.Duration
+	errMsg	string
+}
+
+var failing = []Test{
+	{"", 0, "StreamLinks returned without error, but url is empty."},
+	{"bytema.re", 0, "StreamLinks returned without error, but url is invalid."},
+	{"https://bytema.re", time.Duration(-10), "StreamLinks returned without error, but timeout is invalid."},
+}
+
+// TestFetchLinksFail tests cases where FetchLinks is supposed to fail and/or return an error
+func TestFetchLinksFail(t *testing.T){
+	for _, test := range failing {
+		output, err := crawl.FetchLinks(test.url, test.timeout)
+		if err == nil || output != nil {
+			t.Errorf("%s URL : %s, timeout %d.", test.errMsg, test.url, test.timeout)
+		}
 	}
+}
 
-	// With invalid url name
-	url = "bytema.re"
-	output, err = crawl.FetchLinks(url, time.Duration(timeout))
-	if err == nil || output != nil {
-		t.Errorf("StreamLinks returned without error, but url is invalid. URL : %s.", url)
-	}
+var errMsg = "StreamLinks returned with error, but url and timeout are valid. URL : %s, timeout : %d."
+var succeed = []Test{
+	{"https://bytema.re", 0, ""},
+	{"https://bytema.re", 2, ""},
+	{"https://bytema.re", 10, ""},
+}
 
-	// With valid domain but invalid timeout
-	url = "https://bytema.re"
-	timeout = -10
-	output, err = crawl.FetchLinks(url, time.Duration(timeout))
-	if err == nil || output != nil {
-		t.Errorf("StreamLinks returned without error, but timeout is invalid. URL : %d.", timeout)
-	}
-
-	errMsg := "StreamLinks returned with error, but url and timeout are valid. URL : %s, timeout : %d."
-
-	// With valid domain name and 0 timeout
-	timeout = 0
-	output, err = crawl.FetchLinks(url, time.Duration(timeout))
-	if err != nil || output == nil {
-		t.Errorf(errMsg, url, timeout)
-	}
-
-	// With valid domain name and low timeout
-	timeout = 2
-	output, err = crawl.FetchLinks(url, time.Duration(timeout))
-	if err != nil || output == nil {
-		t.Errorf(errMsg, url, timeout)
-	}
-
-	// With valid domain name and high timeout
-	timeout = 10
-	output, err = crawl.FetchLinks(url, time.Duration(timeout))
-	if err != nil || output == nil {
-		t.Errorf(errMsg, url, timeout)
+// TestFetchLinksSuccess tests cases where FetchLinks is supposed to succeed
+func TestFetchLinksSuccess(t *testing.T) {
+	for _, test := range succeed {
+		output, err := crawl.FetchLinks(test.url, test.timeout)
+		if err != nil || output == nil {
+			t.Errorf(errMsg, test.url, test.timeout)
+		}
 	}
 }

@@ -36,6 +36,7 @@ func timer(syn *synchron) {
 		log.Info("No value assigned for timeout. Timer will not run.")
 		return
 	}
+	timer := time.After(syn.timeout)
 
 loop:
 	for {
@@ -47,8 +48,8 @@ loop:
 			break loop
 
 		// When timeout is reached, inform of timeout, send signal, and quit
-		case <-time.After(syn.timeout):
-			log.Infof("Timing out after %d seconds.", syn.timeout/time.Second)
+		case t := <-timer:
+			log.Infof("Timing out after %0.3f seconds. time passed : %s\n", syn.timeout.Seconds(), t.String())
 			syn.sendQuitSignal()
 			break loop
 		}
@@ -82,13 +83,13 @@ func validateInput(domain string, timeout time.Duration) error {
 
 	// Check whether domain is of valid form
 	if _, err := url.ParseRequestURI(domain); err != nil {
-		msg := fmt.Sprintf("Invalid url : you must specify a valid target domain/url to crawl : %s.", err)
+		msg := fmt.Sprintf("Invalid url : you must specify a valid target domain/url to crawl : %s", err)
 		return errors.New(msg)
 	}
 
 	// Invalid timeout values are handled later, but let's not the user mess with us
 	if timeout < 0 {
-		msg := fmt.Sprintf("Invalid timeout value '%d' : you must specify a valid timeout in [0;+yourpatience[ in seconds.", timeout)
+		msg := fmt.Sprintf("Invalid timeout value '%d' : you must specify a valid timeout in [0 ; +yourpatience [ in seconds", timeout)
 		return errors.New(msg)
 	}
 
@@ -102,7 +103,6 @@ func startCrawling(domain string, syn *synchron) {
 	go crawl(domain, syn)
 
 	syn.group.Wait()
-	close(syn.stopChan)
 
 	log.WithField("url", domain).Info("Shutting down.")
 	close(syn.results)
@@ -117,8 +117,8 @@ func StreamLinks(domain string, timeout time.Duration) (outputChan chan *Result,
 	}
 
 	syn := newSynchron(timeout, 3)
-	log.Infof("Starting web crawler. You can interrupt the program any time with ctrl+c. Logging to %s.", logFilePath)
 	log2File(logFilePath)
+	log.WithField("url", domain).Info("Starting web crawler.")
 
 	go startCrawling(domain, syn)
 

@@ -14,10 +14,6 @@ However the program was launched, you can interrupt it with ctrl+c.
 - single domain scope
 - parallel scrawling
 - optional timeout
+- scraps queries and fragments from url
 - avoid loops on already visited links
-- usable as a package by calling Crawl(), CrawlAsync() and ScrapLinks() functions
-
-## todo
-- unit tests
-- platform tests
-- coverage
+- usable as a package by calling FetchLinks(), StreamLinks() and ScrapLinks() functions

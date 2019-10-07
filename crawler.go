@@ -256,7 +256,7 @@ func initialiseCrawler(domain string, syn *synchron) *crawler {
 	c, err := newCrawler(domain, syn.results, 5*time.Second, 3)
 	if err != nil {
 		log.WithField("url", domain).Error(err)
-		syn.quitCrawler()
+		syn.sendQuitSignal()
 		return nil
 	}
 	c.todo <- c.domain.String()
@@ -308,5 +308,5 @@ loop:
 
 	ticker.Stop()
 	c.prepareCrawlerShutdown(syn)
-	syn.quitCrawler()
+	syn.sendQuitSignal()
 }

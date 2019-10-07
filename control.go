@@ -105,6 +105,7 @@ func startCrawling(domain string, syn *synchron) {
 	close(syn.stopChan)
 
 	log.WithField("url", domain).Info("Shutting down.")
+	close(syn.results)
 }
 
 // StreamLinks returns a channel on which it will report links as they come during the crawling.

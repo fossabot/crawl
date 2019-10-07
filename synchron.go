@@ -53,9 +53,3 @@ func (syn *synchron) sendQuitSignal() {
 		syn.stopChan <- struct{}{}
 	}
 }
-
-// quitCrawler exits the crawl routine, unblocking the Crawler.
-func (syn *synchron) quitCrawler() {
-	syn.sendQuitSignal()
-	close(syn.results)
-}

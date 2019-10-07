@@ -32,12 +32,14 @@ matrix:
 
 before_install:
   - go get github.com/mattn/goveralls
+  - go get -u github.com/golangci/golangci-lint/cmd/golangci-lint
 
 script:
   - go test -trace trace.out
   - go test -race -coverprofile=coverage.out -covermode=atomic
   - $GOPATH/bin/goveralls -service=travis-ci
-  - sonar-scanner
 
 after_success:
+  - sonar-scanner
+  - golangci-lint run ./... --enable-all --disable=goimports --disable=godox --disable=gochecknoglobals --trace-path=./trace.ci --disable=maligned
   - bash <(curl -s https://codecov.io/bash)

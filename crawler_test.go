@@ -32,10 +32,10 @@ func TestFetchLinksFail(t *testing.T) {
 func TestFetchLinksSuccess(t *testing.T) {
 	var succeed = []Test{
 		{"https://bytema.re", 10 * time.Second, ""},
-		{"https://bytema.re", 2 * time.Second, ""},
+		{"https://bytema.re", 250 * time.Millisecond, ""},
 		{"https://bytema.re", 0 * time.Second, ""},
 	}
-	errMsg := "StreamLinks returned with error, but url and timeout are valid. URL : %s, timeout : %0f."
+	errMsg := "StreamLinks returned with error, but url and timeout are valid. URL : %s, timeout : %0.3fs."
 
 	for _, test := range succeed {
 		output, err := crawl.FetchLinks(test.url, test.timeout)

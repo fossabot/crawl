@@ -7,7 +7,7 @@ env:
   - GO111MODULE=on
 
 branches:
-only:
+  only:
   - master
 
 addons:
@@ -29,10 +29,7 @@ matrix:
     - os: osx
     - os: windows
 
-install:
-  - cd app
-  - go build crawl.go
-
 script:
-  - go run crawl.go https://bytema.re
-  - cd ../ && sonar-scanner -X
+  - go test -trace trace.out crawl
+  - go test -coverprofile=coverage.out
+  - sonar-scanner

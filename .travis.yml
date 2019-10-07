@@ -2,6 +2,7 @@ language: go
 
 go:
   - 1.13
+  - tip
 
 env:
   - GO111MODULE=on
@@ -29,7 +30,14 @@ matrix:
     - os: osx
     - os: windows
 
+before_install:
+  - go get github.com/mattn/goveralls
+
 script:
-  - go test -trace trace.out crawl
-  - go test -coverprofile=coverage.out
+  - go test -trace trace.out
+  - go test -race -coverprofile=coverage.out -covermode=atomic
+  - $GOPATH/bin/goveralls -service=travis-ci
   - sonar-scanner
+
+after_success:
+  - bash <(curl -s https://codecov.io/bash)

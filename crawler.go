@@ -88,6 +88,8 @@ func newResult(url string, links *[]string) *Result {
 
 // ScrapLinks returns the links found in the web page pointed to by url
 func ScrapLinks(url string, timeout time.Duration) ([]string, error) {
+	// todo : when calling this function from another package, the log functions wouldn't be initialised/write to file
+	//  -> investigate what would happen and how to mitigate
 
 	// Retrieve page
 	body, err := download(url, timeout)
@@ -264,11 +266,12 @@ func initialiseCrawler(domain string, syn *synchron) *crawler {
 }
 
 // quitCrawler initiates the shutdown process of the crawler
-func (c *crawler) prepareCrawlerShutdown(syn *synchron) {
+func (c *crawler) quitCrawler(syn *synchron) {
 	close(c.workerStop)
 	log.WithField("url", c.domain.String()).Info("Stopping crawler.")
 	c.workerSync.Wait()
 	log.WithField("url", c.domain.String()).Infof("Visited %d links.", len(c.visited))
+	syn.sendQuitSignal()
 }
 
 // crawl manages worker goroutines scraping pages and prints results
@@ -280,7 +283,6 @@ func crawl(domain string, syn *synchron) {
 		return
 	}
 	ticker := time.NewTicker(time.Second)
-
 loop:
 	for {
 		select {
@@ -305,8 +307,6 @@ loop:
 			}
 		}
 	}
-
 	ticker.Stop()
-	c.prepareCrawlerShutdown(syn)
-	syn.sendQuitSignal()
+	c.quitCrawler(syn)
 }

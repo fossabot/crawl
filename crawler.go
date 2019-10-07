@@ -48,7 +48,6 @@ type Result struct {
 
 // newCrawler returns an initialised crawler struct
 func newCrawler(domain string, output chan<- *Result, timeout time.Duration, maxRetry int) (*crawler, error) {
-
 	dURL, err := url.Parse(domain)
 	if err != nil {
 		return nil, err
@@ -106,7 +105,9 @@ func ScrapLinks(url string, timeout time.Duration) ([]string, error) {
 	return extractLinks(url, body), nil
 }
 
-// scraper retrieves a webpage, parses it for links, keeps only domain or relative links, sanitises them, an returns the Result
+// scraper serves a worker goroutine.
+// It retrieves a web page, parses it for links,
+// keeps only domain or relative links, sanitises them, an returns the Result
 func (c *crawler) scraper(url string) {
 	defer c.workerSync.Done()
 
@@ -135,7 +136,6 @@ func (c *crawler) scraper(url string) {
 
 // download retrieves the web page pointed to by the given url
 func download(url string, timeout time.Duration) (io.ReadCloser, error) {
-
 	var client = &http.Client{
 		Timeout: timeout,
 	}
@@ -172,7 +172,6 @@ func (c *crawler) filterLinks(links []string) []string {
 	n := 0
 	// Only keep links that are neither pending or visited
 	for _, link := range links {
-
 		// If pending, skip
 		if _, ok := c.pending[link]; ok {
 			log.WithField("status", "pending").Tracef("Discarding %s.", link)
@@ -210,7 +209,6 @@ func (c *crawler) handleResultError(res *Result) {
 
 // handleResult treats the Result of scraping a page for links
 func (c *crawler) handleResult(result *Result) {
-
 	if result.err != nil {
 		c.handleResultError(result)
 		return
@@ -286,7 +284,6 @@ func crawl(domain string, syn *synchron) {
 loop:
 	for {
 		select {
-
 		// Upon receiving a stop signal
 		case <-syn.stopChan:
 			break loop

@@ -10,7 +10,6 @@ import (
 )
 
 func main() {
-
 	logFilePath := "./log-crawler.log"
 
 	// Define and parse command line arguments

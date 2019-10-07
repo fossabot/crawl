@@ -41,7 +41,6 @@ func timer(syn *synchron) {
 loop:
 	for {
 		select {
-
 		// Quit if keyboard interruption
 		case <-syn.stopChan:
 			log.Trace("Timer received stop message. Stopping Timer.")
@@ -75,7 +74,6 @@ func signalHandler(syn *synchron) {
 
 // validateInput returns whether input is valid and can be worked with
 func validateInput(domain string, timeout time.Duration) error {
-
 	// We can't crawl without a target domain
 	if domain == "" {
 		return errors.New("if you want to crawl something, please specify the target domain as argument")
@@ -89,7 +87,7 @@ func validateInput(domain string, timeout time.Duration) error {
 
 	// Invalid timeout values are handled later, but let's not the user mess with us
 	if timeout < 0 {
-		msg := fmt.Sprintf("Invalid timeout value '%d' : you must specify a valid timeout in [0 ; +yourpatience [ in seconds", timeout)
+		msg := fmt.Sprintf("Invalid timeout value '%d' (accepted values [0 ; +yourpatience [, in seconds)", timeout)
 		return errors.New(msg)
 	}
 
@@ -111,7 +109,6 @@ func startCrawling(domain string, syn *synchron) {
 // StreamLinks returns a channel on which it will report links as they come during the crawling.
 // The timeout parameter allows for a time frame to crawl for.
 func StreamLinks(domain string, timeout time.Duration) (outputChan chan *Result, err error) {
-
 	if err = validateInput(domain, timeout); err != nil {
 		return nil, err
 	}

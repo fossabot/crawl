@@ -62,7 +62,6 @@ func extractLink(origin string, token html.Token) string {
 // - escapes invalid links
 // - strips queries and fragments
 func sanitise(origin string, link string) (string, error) {
-
 	u, err := url.Parse(link)
 	if err != nil {
 		msg := fmt.Sprintf("Couldn't parse %s : %s", link, err)

@@ -87,9 +87,6 @@ func newResult(url string, links *[]string) *Result {
 
 // ScrapLinks returns the links found in the web page pointed to by url
 func ScrapLinks(url string, timeout time.Duration) ([]string, error) {
-	// todo : when calling this function from another package, the log functions wouldn't be initialised/write to file
-	//  -> investigate what would happen and how to mitigate
-
 	// Retrieve page
 	body, err := download(url, timeout)
 	defer func() {
@@ -268,7 +265,7 @@ func (c *crawler) quitCrawler(syn *synchron) {
 	close(c.workerStop)
 	log.WithField("url", c.domain.String()).Info("Stopping crawler.")
 	c.workerSync.Wait()
-	log.WithField("url", c.domain.String()).Infof("Visited %d links.", len(c.visited))
+	log.WithField("url", c.domain.String()).Infof("Visited %d links. %d failed.", len(c.visited), len(c.failed))
 	syn.sendQuitSignal()
 }
 

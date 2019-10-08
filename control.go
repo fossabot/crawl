@@ -11,21 +11,31 @@ import (
 	"time"
 )
 
-var (
-	log                      = logrus.New()
-	logFilePerms os.FileMode = 0666
-	logFilePath              = "./log-crawler.log"
-)
+var log = logrus.New()
+
+// init is called when package is loaded, to set logging parameters
+func init() {
+	var defLogFilePerms os.FileMode = 0666
+	defLogFilePath := "./log-crawler.log"
+
+	// Set logging level
+	log.SetLevel(logrus.TraceLevel)
+
+	// Set logging output
+	log2File(defLogFilePath, defLogFilePerms)
+
+	// Set logging format
+	log.SetFormatter(&logrus.JSONFormatter{})
+}
 
 // log2File switches logging to be output to file only
-func log2File(logFile string) {
-	file, err := os.OpenFile(logFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, logFilePerms)
+func log2File(logFile string, perms os.FileMode) {
+	file, err := os.OpenFile(logFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, perms)
 	if err == nil {
-		log.Out = file
+		log.SetOutput(file)
 	} else {
-		log.Info("Failed to log to file, using default stderr")
+		log.Info("Failed to log to file, using default stderr.")
 	}
-	log.SetFormatter(&logrus.JSONFormatter{})
 }
 
 // timer implements a timeout (should be called as a goroutine)
@@ -64,9 +74,9 @@ func signalHandler(syn *synchron) {
 
 	// Block until a signal is received
 	<-sig
-	log.Trace("signalHandler received a signal. Stopping.")
 	fmt.Println("Stopping Crawler.")
 	if syn.checkout() {
+		log.Info("signalHandler received a signal. Stopping.")
 		syn.stopChan <- struct{}{} // for timer
 		syn.stopChan <- struct{}{} // for crawler
 	}
@@ -114,7 +124,6 @@ func StreamLinks(domain string, timeout time.Duration) (outputChan chan *Result,
 	}
 
 	syn := newSynchron(timeout, 3)
-	log2File(logFilePath)
 	log.WithField("url", domain).Info("Starting web crawler.")
 
 	go startCrawling(domain, syn)

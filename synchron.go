@@ -45,6 +45,7 @@ func (syn *synchron) checkout() bool {
 func (syn *synchron) sendQuitSignal() {
 	if syn.checkout() {
 		log.Info("Initiating shutdown.")
+
 		// Send interrupt signal to ourselves, intercepted by signalHandler
 		p, _ := os.FindProcess(os.Getpid())
 		_ = p.Signal(os.Interrupt)

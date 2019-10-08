@@ -29,6 +29,9 @@ matrix:
       dist: trusty
     - os: osx
     - os: windows
+  allow_failures:
+    - os: windows
+  fast_finish: true
 
 before_install:
   - go get github.com/mattn/goveralls

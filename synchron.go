@@ -1,6 +1,7 @@
 package crawl
 
 import (
+	"fmt"
 	"os"
 	"sync"
 	"time"
@@ -35,6 +36,8 @@ func newSynchron(timeout time.Duration, nbParties int) *synchron {
 func (syn *synchron) checkout() bool {
 	syn.mutex.Lock()
 	defer syn.mutex.Unlock()
+
+	fmt.Println("Stopping Crawler.")
 
 	first := !syn.stopFlag // only true if it was false first
 	syn.stopFlag = true

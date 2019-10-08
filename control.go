@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/sirupsen/logrus"
+	"io/ioutil"
 	"net/url"
 	"os"
 	"os/signal"
@@ -15,17 +16,23 @@ var log = logrus.New()
 
 // init is called when package is loaded, to set logging parameters
 func init() {
+	var logging = true
 	var defLogFilePerms os.FileMode = 0666
-	defLogFilePath := "./log-crawler.log"
+	var defLogFilePath = "./log-crawler.log"
 
-	// Set logging level
-	log.SetLevel(logrus.TraceLevel)
+	// Enable or disable all logging
+	if !logging {
+		log.SetOutput(ioutil.Discard)
+	} else {
+		// Set logging level
+		log.SetLevel(logrus.TraceLevel)
 
-	// Set logging output
-	log2File(defLogFilePath, defLogFilePerms)
+		// Set logging output
+		log2File(defLogFilePath, defLogFilePerms)
 
-	// Set logging format
-	log.SetFormatter(&logrus.JSONFormatter{})
+		// Set logging format
+		log.SetFormatter(&logrus.JSONFormatter{})
+	}
 }
 
 // log2File switches logging to be output to file only
@@ -74,7 +81,6 @@ func signalHandler(syn *synchron) {
 
 	// Block until a signal is received
 	<-sig
-	fmt.Println("Stopping Crawler.")
 	if syn.checkout() {
 		log.Info("signalHandler received a signal. Stopping.")
 		syn.stopChan <- struct{}{} // for timer
@@ -117,7 +123,9 @@ func startCrawling(domain string, syn *synchron) {
 }
 
 // StreamLinks returns a channel on which it will report links as they come during the crawling.
-// The timeout parameter allows for a time frame to crawl for.
+// The caller should range over than channel to continuously retrieve messages. StreamLinks will close that channel
+// when all encountered links have been visited and none is left, when the deadline on the timeout parameter is reached,
+// or if a SIGINT or SIGTERM signals is received.
 func StreamLinks(domain string, timeout time.Duration) (outputChan chan *Result, err error) {
 	if err = validateInput(domain, timeout); err != nil {
 		return nil, err
@@ -131,7 +139,8 @@ func StreamLinks(domain string, timeout time.Duration) (outputChan chan *Result,
 	return syn.results, nil
 }
 
-// FetchLinks returns all visited links on crawling until exhaustion or up until timeout is reached.
+// FetchLinks is a wrapper around StreamLinks and does the same, except it blocks and accumulates all links before
+// returning them to the caller.
 func FetchLinks(domain string, timeout time.Duration) ([]string, error) {
 	results, err := StreamLinks(domain, timeout)
 	if err != nil {

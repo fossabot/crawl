@@ -18,13 +18,7 @@ func extractLinks(origin string, body io.Reader) []string {
 	// This map is an intermediary container for found links, avoiding duplicates
 	links := make(map[string]bool)
 
-	for {
-		typ := tokens.Next()
-
-		if typ == html.ErrorToken {
-			break
-		}
-
+	for typ := tokens.Next() ; typ != html.ErrorToken ; typ = tokens.Next() {
 		token := tokens.Token()
 		if typ == html.StartTagToken && token.Data == "a" {
 			// If it's an anchor, try get the link
@@ -34,7 +28,6 @@ func extractLinks(origin string, body io.Reader) []string {
 			}
 		}
 	}
-
 	return mapToSlice(links)
 }
 

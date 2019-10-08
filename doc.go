@@ -9,5 +9,7 @@ The return values can be used for a site map.
 Some precautions have been taken to prevent infinite loops, like stripping queries and fragments off urls.
 
 A sample program calling the package is given in the project repository.
+
+Please refer to the README for some more information.
 */
 package crawl

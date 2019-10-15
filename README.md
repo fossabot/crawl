@@ -108,7 +108,7 @@ We support the three major Go versions, which are 1.11, 1.12, and 1.13 at the mo
 ## Contributing
 
 Please feel free to submit issues, fork the repository and send pull requests!
-Take a look at the contributing guidelines !
+Take a look at the [contributing guidelines](https://github.com/bytemare/crawl/blob/master/contributing.md) !
 
 ## License
 

@@ -46,5 +46,5 @@ script:
 
 after_success:
   - sonar-scanner
-  - golangci-lint run ./... --enable-all --disable=goimports --disable=godox --disable=gochecknoglobals --trace-path=./trace.ci --disable=maligned --disable=gochecknoinits
+  - golangci-lint run ./... --enable-all --disable=godox --disable=gochecknoglobals --trace-path=./trace.ci --disable=maligned --disable=gochecknoinits
   - bash <(curl -s https://codecov.io/bash)

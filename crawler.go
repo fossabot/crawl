@@ -1,12 +1,13 @@
 package crawl
 
 import (
-	"github.com/sirupsen/logrus"
 	"io"
 	"net/http"
 	"net/url"
 	"sync"
 	"time"
+
+	"github.com/sirupsen/logrus"
 )
 
 type crawler struct {

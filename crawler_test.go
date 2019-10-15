@@ -1,9 +1,10 @@
 package crawl_test
 
 import (
-	"github.com/bytemare/crawl"
 	"testing"
 	"time"
+
+	"github.com/bytemare/crawl"
 )
 
 type Test struct {

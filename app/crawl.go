@@ -3,10 +3,11 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/bytemare/crawl"
 	"os"
 	"path/filepath"
 	"time"
+
+	"github.com/bytemare/crawl"
 )
 
 func main() {

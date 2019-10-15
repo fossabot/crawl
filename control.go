@@ -3,13 +3,14 @@ package crawl
 import (
 	"errors"
 	"fmt"
-	"github.com/sirupsen/logrus"
 	"io/ioutil"
 	"net/url"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
+
+	"github.com/sirupsen/logrus"
 )
 
 var log = logrus.New()

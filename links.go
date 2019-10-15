@@ -3,10 +3,12 @@ package crawl
 import (
 	"errors"
 	"fmt"
-	"github.com/sirupsen/logrus"
-	"golang.org/x/net/html"
 	"io"
 	"net/url"
+
+	"golang.org/x/net/html"
+
+	"github.com/sirupsen/logrus"
 )
 
 // extractLinks returns a slice of all links from an http.Get response body like reader object.
